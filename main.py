@@ -2,6 +2,7 @@ import shutil
 from time import strftime
 import os
 from filecmp import dircmp, cmp
+from tempfile import TemporaryFile
 
 
 succeeded_games = []
@@ -99,7 +100,7 @@ if os.path.isdir(save_root):
         if (not eval(options['SAVE_IDENTICAL_FILE_TOO'])) and name in last_dsts:
             is_identical = False
             if os.path.isdir(src):
-                with open('temp.txt', mode='w+', encoding='utf-8') as temp_file:
+                with TemporaryFile(mode='w+', encoding='utf-8') as temp_file:
                     try:
                         comp_obj = dircmp2(last_dsts[name], src, temp_file)
                         comp_obj.report_full_closure()
