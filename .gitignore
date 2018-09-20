@@ -1,0 +1,5 @@
+build/
+.idea/
+setup.bat
+setup.py
+Game Saver.bat
