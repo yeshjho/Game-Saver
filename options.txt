@@ -7,5 +7,5 @@ SAVE_IDENTICAL_FILE_TOO = 0
 VERBOSE_REPORT = 1
 # 저장한 게임, 실패한 게임 외에도 건너뛴 게임들도 결과 창에 띄울지의 여부입니다.
 
-USE_COMMAND = -1
+USE_COMMAND = 1
 # 명령어를 사용할지의 여부입니다. 사용하지 않으면 사용할 수 있는 명령어 목록을 띄우고 숫자로 선택합니다.

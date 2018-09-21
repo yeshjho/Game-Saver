@@ -1,11 +1,14 @@
 import shutil
 from time import strftime
 import os
+import sys
 from filecmp import dircmp, cmp
 from tempfile import TemporaryFile
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog
+import ctypes
 
+from constants import *
 
 succeeded_games = []
 failed_games = []
@@ -51,7 +54,7 @@ class FileSelectDialog(QtWidgets.QWidget):
 
 
 def save_logic():
-    for name, src in zip(srcs.keys(), srcs.values()):
+    for name, src in srcs.items():
         name = name.strip()
         src = src.strip()
 
@@ -131,7 +134,7 @@ def save(_name, _src):
         same_time_games.append(_name)
         return False
     except FileNotFoundError:
-        print(_name + "의 " + _src + " 경로가 올바르지 않거나 파일이 존재하지 않습니다. 저장에 실패했습니다.\n")
+        print_color(_name + "의 " + _src + " 경로가 올바르지 않거나 파일이 존재하지 않습니다. 저장에 실패했습니다.\n", FORE_RED)
         failed_games.append(_name)
         return False
     except NotADirectoryError:
@@ -155,11 +158,111 @@ def report_result(message, game_list):
         print('\t' + _game)
 
 
-with open("locations.txt", 'a+', encoding="utf-8") as gm_loc_file:
+def set_cmd_color(color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
+    ctypes.windll.kernel32.SetConsoleTextAttribute(handle, color)
+
+
+def print_color(msg, color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
+    set_cmd_color(color, handle)
+    print(msg)
+    set_cmd_color(FORE_WHITEb)
+
+
+def eval_command(**kwargs):
+    if kwargs['command'] == 'help':
+        if kwargs['args']:
+            pass
+        else:
+            print('''~사용한 기호들의 의미~
+
+[]\t\t선택적으로 입력
+<>\t\t필수적으로 입력
+|\t\t또는 (하나 선택)
++\t\t한 개 이상
+"###"\t### 그대로 입력
+=, {}\t기본값
+
+
+help [command]
+도움말을 봅니다.
+
+save [game_name+]
+게임 파일들을 백업합니다.
+
+path add <game_name> [isAFile=0] [nickname]
+세이브 파일 경로를 저장합니다.
+
+path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
+세이브 파일 경로를 수정합니다.
+
+path show [game_name+|"dst"]
+저장된 세이브 파일 경로를 보여줍니다.
+
+path del <game_name+>
+세이브 파일 경로를 삭제합니다.
+
+del <game_name|date [date]> [trackHistory=0]
+저장된 백업본을 삭제합니다.
+
+delall [trackHistory=0]
+이때까지의 모든 백업본을 삭제합니다.
+
+option [showTF=0]
+옵션 값을 보고 수정합니다.
+
+exit
+프로그램을 종료합니다.
+''')
+
+    elif kwargs['command'] == 'save':
+        if kwargs['args']:
+            pass
+        else:
+            if os.path.isdir(save_root):
+                save_logic()
+            else:
+                print_color("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)", FORE_RED)
+
+    elif kwargs['command'] == 'path':
+        if kwargs['args']:
+            pass
+        else:
+            pass
+
+    elif kwargs['command'] == 'del':
+        if kwargs['args']:
+            pass
+        else:
+            pass
+
+    elif kwargs['command'] == 'delall':
+        if kwargs['args']:
+            pass
+        else:
+            pass
+
+    elif kwargs['command'] == 'option':
+        if kwargs['args']:
+            pass
+        else:
+            pass
+
+    elif kwargs['command'] == 'exit':
+        if kwargs['args']:
+            pass
+        else:
+            # TODO: save files
+            sys.exit()
+
+    else:
+        print('존재하지 않는 명령어입니다. 도움말을 보려면 help를 치세요.')
+
+
+with open("locations.txt", encoding="utf-8") as gm_loc_file:
     gm_loc_file.seek(0)
     srcs = dict(filter(lambda x: len(x) != 1,
                        map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
-                           gm_loc_file.readlines())))
+                           gm_loc_file.readlines())))  # TODO: nickname system
 
 with open("last_saved.txt", 'a+', encoding='utf-8') as last_saved_file:
     last_saved_file.seek(0)
@@ -167,7 +270,7 @@ with open("last_saved.txt", 'a+', encoding='utf-8') as last_saved_file:
                             map(lambda x: x.strip().split("|"),
                                 last_saved_file.readlines())))
 
-with open("options.txt", 'a+', encoding='utf-8') as option_file:
+with open("options.txt", encoding='utf-8') as option_file:
     option_file.seek(0)
     options = dict(filter(lambda x: len(x) != 1,
                           map(lambda x: x.strip().split(" = ") if x[0] != "#" else '_',
@@ -177,28 +280,26 @@ save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs
 del srcs['SaveLocation']
 
 if __name__ == "__main__":
+    set_cmd_color(FORE_WHITEb)
+
     if options['USE_COMMAND'] == '-1':
-        answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. (Y/N): ")
-        while answer != 'Y' and answer != 'N':
-            answer = input("Y/N 중 하나를 입력해 주세요: ")
-        options['USER_COMMAND'] = '1' if answer == 'Y' else '0'
+        answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
+        while answer != 'y' and answer != 'n' and answer != '':
+            answer = input("y/n 중 하나를 입력해 주세요: ")
+        options['USE_COMMAND'] = '1' if answer == 'y' or answer == '' else '0'
         with open('options.txt', 'r+', encoding='utf-8') as option_file:
-            contain = option_file.read().replace('-1', options['USER_COMMAND'])
+            contain = option_file.read().replace('-1', options['USE_COMMAND'])
             option_file.seek(0)
             option_file.write(contain)
+            option_file.truncate()
 
-    if eval(options['USER_COMMAND']):
+    if eval(options['USE_COMMAND']):
+        print('도움말을 보려면 help를 치세요.\n')
         while True:
-            break
+            command = input().split()  # TODO: not splitting spaces inside ''
+            if command:
+                eval_command(command=command[0], args=command[1:])
+
     else:
         while True:
             break
-
-    '''
-    if os.path.isdir(save_root):
-        save_logic()
-    else:
-        print("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)")
-    '''
-
-input("\n종료하려면 엔터 키를 누르세요.")
