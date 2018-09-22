@@ -17,6 +17,18 @@ same_time_games = []
 identical_games = []
 
 
+class TooManyArgumentsError(Exception):
+    pass
+
+
+class TooFewArgumentError(Exception):
+    pass
+
+
+class ArgumentTypeMismatchError(Exception):
+    pass
+
+
 class dircmp2(dircmp):
     def __init__(self, a, b, f, ignore=None, hide=None):
         super().__init__(a, b, ignore, hide)
@@ -53,14 +65,14 @@ class FileSelectDialog(QtWidgets.QWidget):
         return self.dialog.selectedFiles()[0]
 
 
-def save_logic():
-    for name, src in srcs.items():
+def save_logic(game_dict):
+    for name, src in game_dict.items():
         name = name.strip()
         src = src.strip()
 
         if name.startswith('!'):
             skipped_games.append(name[:1])
-            print_color(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_ORANGEb)
+            print_color(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_GRAPEFRUIT)
             continue
 
         print(name + " 저장 중...")
@@ -75,7 +87,7 @@ def save_logic():
                         is_identical = False if temp_file.read() else True
                         if is_identical:
                             identical_games.append(name)
-                            print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOWb)
+                            print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_IVORY)
                             continue
                         else:
                             if not save(name, src):
@@ -89,7 +101,7 @@ def save_logic():
                     is_identical = cmp(last_dsts[name], src)
                     if is_identical:
                         identical_games.append(name)
-                        print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOWb)
+                        print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_IVORY)
                         continue
                     else:
                         if not save(name, src):
@@ -113,11 +125,11 @@ def save_logic():
         report_result("\n저장에 실패한 게임들:", failed_games, FORE_RED)
     if eval(options['VERBOSE_REPORT']):
         if skipped_games:
-            report_result("\n사용자에 의해 건너뛴 게임들:", skipped_games, FORE_ORANGEb)
+            report_result("\n사용자에 의해 건너뛴 게임들:", skipped_games, FORE_GRAPEFRUIT)
         if same_time_games:
-            report_result("\n동일 시각 저장본이 존재해 건너뛴 게임들:", same_time_games, FORE_BROWN)
+            report_result("\n동일 시각 저장본이 존재해 건너뛴 게임들:", same_time_games, FORE_YELLOW)
         if identical_games:
-            report_result("\n최신 저장본과 동일해 건너뛴 게임들:", identical_games, FORE_YELLOWb)
+            report_result("\n최신 저장본과 동일해 건너뛴 게임들:", identical_games, FORE_IVORY)
 
 
 def save(_name, _src):
@@ -129,7 +141,7 @@ def save(_name, _src):
         else:
             last_dsts[_name] = save_dst + _src.split('/')[-1]
     except FileExistsError:
-        print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_BROWN)
+        print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
         same_time_games.append(_name)
         return False
     except FileNotFoundError:
@@ -142,7 +154,7 @@ def save(_name, _src):
             shutil.copy(_src, save_dst)
             last_dsts[_name] = save_dst + _src.split('/')[-1]
         else:
-            print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_BROWN)
+            print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
             same_time_games.append(_name)
             return False
 
@@ -151,110 +163,114 @@ def save(_name, _src):
     return True
 
 
-def report_result(message, game_list, color=FORE_WHITEb):
+def delete(game_dict):
+    pass
+
+
+def report_result(message, game_list, color=FORE_WHITE):
     print_color(message, color)
     for _game in sorted(game_list):
         print('\t' + _game)
+
+
+def edit_options(showTF=False):
+    pass
 
 
 def set_cmd_color(color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
     ctypes.windll.kernel32.SetConsoleTextAttribute(handle, color)
 
 
-def print_color(msg, color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
+def print_color(_msg, color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
     set_cmd_color(color, handle)
-    print(msg)
-    set_cmd_color(FORE_WHITEb)
+    print(_msg)
+    set_cmd_color(FORE_WHITE, handle)
 
 
 def eval_command(**kwargs):
     if kwargs['command'] == 'help':
-        if kwargs['args']:
-            pass
+        if len(kwargs['args']) == 0:
+            print_color(SYMBOL_MEANING_EXPLANATION, FORE_GRAY)
+            for _command in COMMANDS:
+                print_color(COMMAND_SYNTAX[_command], FORE_LIME)
+                print_color(COMMAND_EXPLANATION_SIMPLE[_command], FORE_SILVER)
+                print()
         else:
-            print('''~사용한 기호들의 의미~
-
-[]\t선택적으로 입력
-<>\t필수적으로 입력
-|\t또는 (하나 선택)
-+\t한 개 이상
-"###"\t### 그대로 입력
-=, {}\t기본값
-
-
-help [command]
-도움말을 봅니다.\ncommand가 주어지면 해당 명령어에 관한 자세한 설명을 봅니다.
-
-save [game_name+]
-게임 파일들을 백업합니다.
-
-path add <game_name> [isAFile=0] [nickname]
-세이브 파일 경로를 추가합니다.
-
-path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
-세이브 파일 경로를 수정합니다.
-
-path show [game_name+|"dst"]
-세이브 파일 경로를 보여줍니다.
-
-path del <game_name+>
-저장된 세이브 파일 경로를 삭제합니다.
-
-del <game_name|date [date]> [trackHistory=0]
-저장된 백업본을 삭제합니다.
-
-delall [trackHistory=0]
-이때까지의 모든 백업본을 삭제합니다.
-
-option [showTF=0]
-옵션 값을 보고 수정합니다.
-
-exit
-프로그램을 종료합니다.
-''')
+            if kwargs['args'] == ['path']:
+                print_color('add, edit, show, del 중 한 가지 모드를 추가로 입력해 주세요.\n', FORE_YELLOW)
+            else:
+                try:
+                    print_color(COMMAND_SYNTAX[' '.join(kwargs['args'])], FORE_LIME)
+                    print_color(COMMAND_EXPLANATION_DETAILED[' '.join(kwargs['args'])], FORE_SILVER)
+                    print()
+                except KeyError:
+                    print_color('존재하지 않는 명령어입니다.\n', FORE_YELLOW)
 
     elif kwargs['command'] == 'save':
-        if kwargs['args']:
-            pass
-        else:
+        if len(kwargs['args']) == 0:
             if os.path.isdir(save_root):
-                save_logic()
+                save_logic(srcs)
             else:
-                print_color("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)", FORE_RED)
+                print_color("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)\n", FORE_RED)
+        else:
+            pass
 
     elif kwargs['command'] == 'path':
         if kwargs['args']:
-            pass
+            if kwargs['args'][0] == 'add':
+                pass
+            elif kwargs['args'][0] == 'edit':
+                pass
+            elif kwargs['args'][0] == 'show':
+                pass
+            elif kwargs['args'][0] == 'del':
+                pass
+            else:
+                raise ArgumentTypeMismatchError('add, edit, show, del 중 하나를 입력해 주세요.')
         else:
-            pass
+            raise TooFewArgumentError('add, edit, show, del 중 하나를 추가로 입력해 주세요.')
 
     elif kwargs['command'] == 'del':
-        if kwargs['args']:
+        if len(kwargs['args']) == 0:
+            raise TooFewArgumentError
+        elif len(kwargs['args']) == 1:
+            pass
+        elif len(kwargs['args']) == 2:
+            pass
+        elif len(kwargs['args']) == 3:
             pass
         else:
-            pass
+            raise TooManyArgumentsError
 
     elif kwargs['command'] == 'delall':
-        if kwargs['args']:
+        if len(kwargs['args']) == 0:
+            pass
+        elif len(kwargs['args']) == 1:
             pass
         else:
-            pass
+            raise TooManyArgumentsError
 
     elif kwargs['command'] == 'option':
-        if kwargs['args']:
-            pass
+        if len(kwargs['args']) == 0:
+            edit_options()
+        elif len(kwargs['args']) == 1:
+            if kwargs['args'][0] == '0':
+                edit_options()
+            elif kwargs['args'][0] == '1':
+                edit_options(True)
+            else:
+                raise ArgumentTypeMismatchError('0과 1 중 하나를 입력해 주세요.')
         else:
-            pass
+            raise TooManyArgumentsError
 
     elif kwargs['command'] == 'exit':
-        if kwargs['args']:
-            pass
-        else:
-            # TODO: save files
+        if len(kwargs['args']) == 0:
             sys.exit()
+        else:
+            raise TooManyArgumentsError
 
     else:
-        print('존재하지 않는 명령어입니다. 도움말을 보려면 help를 치세요.')
+        print_color('존재하지 않는 명령어입니다. 도움말을 보려면 help를 치세요.\n', FORE_YELLOW)
 
 
 with open("locations.txt", encoding="utf-8") as gm_loc_file:
@@ -277,7 +293,8 @@ save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs
 del srcs['SaveLocation']
 
 if __name__ == "__main__":
-    set_cmd_color(FORE_WHITEb)
+    set_cmd_color(FORE_WHITE)
+    print_color('제작자: yeshjho\n', FORE_CYAN)
 
     if options['USE_COMMAND'] == '-1':
         answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
@@ -293,9 +310,28 @@ if __name__ == "__main__":
     if eval(options['USE_COMMAND']):
         print('도움말을 보려면 help를 치세요.\n')
         while True:
-            command = input(">>").split()  # TODO: not splitting spaces inside ''
+            command = input(">>").split()  # TODO: not splitting spaces inside ""
             if command:
-                eval_command(command=command[0], args=command[1:])
+                try:
+                    eval_command(command=command[0], args=command[1:])
+                except TooManyArgumentsError as msg:
+                    print_color('인수가 너무 많습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    print()
+                except TooFewArgumentError as msg:
+                    print_color('인수가 너무 적습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    print()
+                except ArgumentTypeMismatchError as msg:
+                    print_color('인수가 적절하지 않습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    print()
 
     else:
         while True:
