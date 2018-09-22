@@ -5,3 +5,4 @@ setup.py
 Game Saver.bat
 test.py
 __pycache__/
+last_saved.txt

@@ -60,13 +60,12 @@ def save_logic():
 
         if name.startswith('!'):
             skipped_games.append(name[:1])
-            print(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n")
+            print_color(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_ORANGEb)
             continue
 
         print(name + " 저장 중...")
 
         if (not eval(options['SAVE_IDENTICAL_FILE_TOO'])) and name in last_dsts:
-            is_identical = False
             if os.path.isdir(src):
                 with TemporaryFile('w+', encoding='utf-8') as temp_file:
                     try:
@@ -76,7 +75,7 @@ def save_logic():
                         is_identical = False if temp_file.read() else True
                         if is_identical:
                             identical_games.append(name)
-                            print(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n")
+                            print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOWb)
                             continue
                         else:
                             if not save(name, src):
@@ -90,7 +89,7 @@ def save_logic():
                     is_identical = cmp(last_dsts[name], src)
                     if is_identical:
                         identical_games.append(name)
-                        print(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n")
+                        print_color(name + "는 최신 저장본과 동일합니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOWb)
                         continue
                     else:
                         if not save(name, src):
@@ -105,20 +104,20 @@ def save_logic():
 
     print("\n모든 게임의 저장이 완료되었습니다.")
     if succeeded_games:
-        report_result("\n새로 저장한 게임들:", succeeded_games)
+        report_result("\n새로 저장한 게임들:", succeeded_games, FORE_BLUE)
 
         with open('last_saved.txt', 'w', encoding='utf-8') as _last_saved_file:
             for _key in last_dsts:
                 print(_key + '|' + last_dsts[_key], file=_last_saved_file)
     if failed_games:
-        report_result("\n저장에 실패한 게임들:", failed_games)
+        report_result("\n저장에 실패한 게임들:", failed_games, FORE_RED)
     if eval(options['VERBOSE_REPORT']):
         if skipped_games:
-            report_result("\n사용자에 의해 건너뛴 게임들:", skipped_games)
+            report_result("\n사용자에 의해 건너뛴 게임들:", skipped_games, FORE_ORANGEb)
         if same_time_games:
-            report_result("\n동일 시각 저장본이 존재해 건너뛴 게임들:", same_time_games)
+            report_result("\n동일 시각 저장본이 존재해 건너뛴 게임들:", same_time_games, FORE_BROWN)
         if identical_games:
-            report_result("\n최신 저장본과 동일해 건너뛴 게임들:", identical_games)
+            report_result("\n최신 저장본과 동일해 건너뛴 게임들:", identical_games, FORE_YELLOWb)
 
 
 def save(_name, _src):
@@ -130,7 +129,7 @@ def save(_name, _src):
         else:
             last_dsts[_name] = save_dst + _src.split('/')[-1]
     except FileExistsError:
-        print(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n")
+        print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_BROWN)
         same_time_games.append(_name)
         return False
     except FileNotFoundError:
@@ -143,17 +142,17 @@ def save(_name, _src):
             shutil.copy(_src, save_dst)
             last_dsts[_name] = save_dst + _src.split('/')[-1]
         else:
-            print(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n")
+            print_color(_name + "의 동일 시각 저장본이 이미 있습니다. 해당 게임을 건너뜁니다...\n", FORE_BROWN)
             same_time_games.append(_name)
             return False
 
     succeeded_games.append(_name)
-    print(_name + " 저장 완료했습니다.\n")
+    print_color(_name + " 저장 완료했습니다.\n", FORE_BLUE)
     return True
 
 
-def report_result(message, game_list):
-    print(message)
+def report_result(message, game_list, color=FORE_WHITEb):
+    print_color(message, color)
     for _game in sorted(game_list):
         print('\t' + _game)
 
@@ -175,31 +174,31 @@ def eval_command(**kwargs):
         else:
             print('''~사용한 기호들의 의미~
 
-[]\t\t선택적으로 입력
-<>\t\t필수적으로 입력
-|\t\t또는 (하나 선택)
-+\t\t한 개 이상
+[]\t선택적으로 입력
+<>\t필수적으로 입력
+|\t또는 (하나 선택)
++\t한 개 이상
 "###"\t### 그대로 입력
 =, {}\t기본값
 
 
 help [command]
-도움말을 봅니다.
+도움말을 봅니다.\ncommand가 주어지면 해당 명령어에 관한 자세한 설명을 봅니다.
 
 save [game_name+]
 게임 파일들을 백업합니다.
 
 path add <game_name> [isAFile=0] [nickname]
-세이브 파일 경로를 저장합니다.
+세이브 파일 경로를 추가합니다.
 
 path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
 세이브 파일 경로를 수정합니다.
 
 path show [game_name+|"dst"]
-저장된 세이브 파일 경로를 보여줍니다.
+세이브 파일 경로를 보여줍니다.
 
 path del <game_name+>
-세이브 파일 경로를 삭제합니다.
+저장된 세이브 파일 경로를 삭제합니다.
 
 del <game_name|date [date]> [trackHistory=0]
 저장된 백업본을 삭제합니다.
@@ -259,7 +258,6 @@ exit
 
 
 with open("locations.txt", encoding="utf-8") as gm_loc_file:
-    gm_loc_file.seek(0)
     srcs = dict(filter(lambda x: len(x) != 1,
                        map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
                            gm_loc_file.readlines())))  # TODO: nickname system
@@ -271,7 +269,6 @@ with open("last_saved.txt", 'a+', encoding='utf-8') as last_saved_file:
                                 last_saved_file.readlines())))
 
 with open("options.txt", encoding='utf-8') as option_file:
-    option_file.seek(0)
     options = dict(filter(lambda x: len(x) != 1,
                           map(lambda x: x.strip().split(" = ") if x[0] != "#" else '_',
                               option_file.readlines())))
@@ -296,7 +293,7 @@ if __name__ == "__main__":
     if eval(options['USE_COMMAND']):
         print('도움말을 보려면 help를 치세요.\n')
         while True:
-            command = input().split()  # TODO: not splitting spaces inside ''
+            command = input(">>").split()  # TODO: not splitting spaces inside ''
             if command:
                 eval_command(command=command[0], args=command[1:])
 
