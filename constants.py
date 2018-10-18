@@ -42,7 +42,7 @@ COMMAND_SYNTAX = {'help': 'help [command]',
                   'path show': 'path show [game_name+|"dst"]',
                   'path del': 'path del <game_name+>',
                   'del': 'del <game_name|date [date]> [trackHistory=0]',
-                  'delall': 'delall [trackHistory=0]',
+                  'delall': 'delall',
                   'option': 'option [showTF=0]',
                   'exit': 'exit'}
 
@@ -61,7 +61,7 @@ COMMAND_EXPLANATION_SIMPLE = {'help': '도움말을 봅니다.\n'
 COMMAND_EXPLANATION_DETAILED = {'help': '도움말을 봅니다.\n'
                                         'command가 주어지면 해당 명령어에 관한 자세한 설명을 봅니다.',
                                 'save': '게임 파일들을 저장합니다.\n'
-                                        'game_name이 한 개 이상 주어지면 해당 이름의 게임들만 저장합니다.',
+                                        'game_name이 한 개 이상 주어지면 해당 이름 또는 별칭의 게임들만 저장합니다.',
                                 'path add': 'game_name의 이름을 가진 게임의 세이브 파일 경로를 추가합니다.\n'
                                             'isAFile은 세이브 파일의 경로가 폴더인지 파일인지를 구분합니다.\n'
                                             'nickname이 주어지면 별칭 또한 저장합니다.',
@@ -79,8 +79,7 @@ COMMAND_EXPLANATION_DETAILED = {'help': '도움말을 봅니다.\n'
                                        'date가 2개 주어지면 해당 날짜 사이의 모든 백업본을 삭제합니다.\n'
                                        'date는 YYYY.MM.DD의 형태로 작성합니다.\n'
                                        'trackHistory가 1이면 백업 경로가 바뀐 적이 있어도 이전 경로의 백업본까지 추적해 삭제합니다.',
-                                'delall': '이때까지의 모든 백업본을 삭제합니다.\n'
-                                          'trackHistory가 1이면 백업 경로가 바뀐 적이 있어도 이전 경로의 백업본까지 추적해 삭제합니다.',
+                                'delall': '현재 백업 파일이 저장되는 경로에 있는 모든 백업본을 삭제합니다.',
                                 'option': '옵션 값을 보고 수정합니다.\n'
                                           'showTF가 1이면 1/0 대신 True/False 형식으로 표시합니다.',
                                 'exit': '프로그램을 종료합니다.'}
@@ -93,5 +92,7 @@ SYMBOL_MEANING_EXPLANATION = '''~사용한 기호들의 의미~
 +\t한 개 이상
 "###"\t###를 그대로 입력
 =, {}\t기본값
+
+게임 이름에 공백이 들어간다면 명령어에 입력할 때 따옴표("")로 묶어주세요.
 
 '''

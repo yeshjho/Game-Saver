@@ -1,52 +1,53 @@
 # /과 \ 혼용 가능합니다.
 # SaveLocation에는 세이브 파일들이 저장될 경로를 지정해 주세요. (이미 존재하는 폴더여야 합니다.)
-# 그 뒤로는 (게임명)|(저장될 파일 또는 폴더가 있는 경로) 식으로 작성해 주세요.
+# 그 뒤로는 (게임명)|(게임 별칭)(선택사항)|(저장될 파일 또는 폴더가 있는 경로) 식으로 작성해 주세요.
+# 게임명과 별칭은 대소문자를 구별합니다.
 # 파일 한 개도 저장 가능하고, 폴더 통째로 저장도 가능합니다.
 # 게임 이름 앞에 !를 붙이면 저장하지 않습니다.
 # 빈 줄은 자동으로 무시합니다.
-# 게임 이름과 경로의 양 끝에 공백 추가는 자유입니다. (   Game Name  |  C:\/aaa\bbb   와 같은 표기 가능)
+# 게임 이름과 경로의 양 끝에 공백 추가는 자유입니다. (    Game Name  |Game Nickname|  C:\/aaa\bbb   와 같은 표기 가능)
 
 SaveLocation|D://Game Saves/
 
-Life is Strange|C://Users/yeshj/Documents/My Games/Life is Strange
-Shenzhen IO|C://Users/yeshj/Documents/My Games/SHENZHEN IO
-Terraria|C://Users/yeshj/Documents/My Games/Terraria
-XCOM|C://Users/yeshj/Documents/My Games/XCOM - Enemy Unknown
-XCOM 2|C://Users/yeshj/Documents/My Games/XCOM2
+Life is Strange|LIS|C://Users/yeshj/Documents/My Games/Life is Strange
+Shenzhen IO||C://Users/yeshj/Documents/My Games/SHENZHEN IO
+Terraria||C://Users/yeshj/Documents/My Games/Terraria
+XCOM||C://Users/yeshj/Documents/My Games/XCOM - Enemy Unknown
+XCOM 2||C://Users/yeshj/Documents/My Games/XCOM2
 
-7 Billion Humans|C:\Users\yeshj\AppData\Roaming\7 Billion Humans
-Assassin's Creed Origins|C://Program Files (x86)/Ubisoft/Ubisoft Game Launcher/savegames/a5212a59-c89c-4206-9d27-0664294250ab/4923
-Astroneer|C://Users/yeshj/AppData/Local/Astro
-Bastion|C://Program Files (x86)/Steam/userdata/82415640/107100
-BattleBlock Theater|C://Program Files (x86)/Steam/userdata/82415640/238460
-Boson X|C://Program Files (x86)/Steam/steamapps/common/Boson X/ltstate
-Crypt of the NecroDancer|C://Program Files (x86)/Steam/steamapps/common/Crypt of the NecroDancer/data/save_data76561198042681368.xml
-Cuphead|C://Users/yeshj/AppData/Roaming/Cuphead
-Dark Souls III|C://Users/yeshj/AppData/Roaming/DarkSoulsIII
-Dead Cells|C://Program Files (x86)/Steam/userdata/82415640/588650
-Dead Core|C://Program Files (x86)/Steam/steamapps/common/DeadCore/76561198042681368
-Divide by Sheep|C:\Users\yeshj\AppData\Roaming\Dividebysheep\Local Store
-Don't Starve|C:\Program Files (x86)\Steam\userdata\82415640\219740
-Don't Starve Together|C:\Users\yeshj\Documents\Klei\DoNotStarveTogether\client_save
-Dungeon of the Endless|C:\Users\yeshj\Documents\Dungeon of the Endless\Users\82415640
-EDGE|C:\Users\yeshj\AppData\Local\Two Tribes\EDGE\local_savedata.ttsav
-Skyrim|C:\Users\yeshj\Documents\My Games\Skyrim Special Edition\Saves
-Endless Legend|C:\Users\yeshj\Documents\Endless Legend\Save Files
-Endless Space|C:\Users\yeshj\Documents\Endless Space\Save
-Enter the Gungeon|C:\Users\yeshj\AppData\LocalLow\Dodge Roll\Enter the Gungeon
-Far Cry 4|C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\savegames\a5212a59-c89c-4206-9d27-0664294250ab\420
-Fallout 3|C://Users/yeshj/Documents/My Games/Fallout3
-Fallout New Vegas|C://Users/yeshj/Documents/My Games/FalloutNV
-Fallout 4|C://Users/yeshj/Documents/My Games/Fallout4
-Fallout Shelter|C:\Users\yeshj\AppData\Local\FalloutShelter
-Garry's Mod|C:\Program Files (x86)\Steam\steamapps\common\GarrysMod\garrysmod\saves
-Geometry Dash|C:\Users\yeshj\AppData\Local\GeometryDash
-GTA V|C:\Users\yeshj\Documents\Rockstar Games\GTA V\Profiles\0F7268BC
-Gunpoint|C:\Program Files (x86)\Steam\steamapps\common\Gunpoint\Savegames
-Hacknet|C:\Program Files (x86)\Steam\userdata\82415640\365450\remote
-Half-Life|C:\Program Files (x86)\Steam\steamapps\common\Half-Life\valve\SAVE
-Half-Life 2|C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\hl2\save
-Half-Life 2 Episode One|C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\episodic\save
-Half-Life 2 Episode Two|C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\ep2\save
-Hand of Fate|C:\Program Files (x86)\Steam\userdata\82415640\266510\remote\HandOfFate
-Hollow Knight|C:\Users\yeshj\AppData\LocalLow\Team Cherry\Hollow Knight
+7 Billion Humans||C:\Users\yeshj\AppData\Roaming\7 Billion Humans
+Assassin's Creed Origins||C://Program Files (x86)/Ubisoft/Ubisoft Game Launcher/savegames/a5212a59-c89c-4206-9d27-0664294250ab/4923
+Astroneer||C://Users/yeshj/AppData/Local/Astro
+Bastion||C://Program Files (x86)/Steam/userdata/82415640/107100
+BattleBlock Theater||C://Program Files (x86)/Steam/userdata/82415640/238460
+Boson X||C://Program Files (x86)/Steam/steamapps/common/Boson X/ltstate
+Crypt of the NecroDancer||C://Program Files (x86)/Steam/steamapps/common/Crypt of the NecroDancer/data/save_data76561198042681368.xml
+Cuphead||C://Users/yeshj/AppData/Roaming/Cuphead
+Dark Souls III||C://Users/yeshj/AppData/Roaming/DarkSoulsIII
+Dead Cells||C://Program Files (x86)/Steam/userdata/82415640/588650
+Dead Core||C://Program Files (x86)/Steam/steamapps/common/DeadCore/76561198042681368
+Divide by Sheep||C:\Users\yeshj\AppData\Roaming\Dividebysheep\Local Store
+Don't Starve||C:\Program Files (x86)\Steam\userdata\82415640\219740
+Don't Starve Together||C:\Users\yeshj\Documents\Klei\DoNotStarveTogether\client_save
+Dungeon of the Endless||C:\Users\yeshj\Documents\Dungeon of the Endless\Users\82415640
+EDGE||C:\Users\yeshj\AppData\Local\Two Tribes\EDGE\local_savedata.ttsav
+Skyrim||C:\Users\yeshj\Documents\My Games\Skyrim Special Edition\Saves
+Endless Legend||C:\Users\yeshj\Documents\Endless Legend\Save Files
+Endless Space||C:\Users\yeshj\Documents\Endless Space\Save
+Enter the Gungeon||C:\Users\yeshj\AppData\LocalLow\Dodge Roll\Enter the Gungeon
+Far Cry 4||C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\savegames\a5212a59-c89c-4206-9d27-0664294250ab\420
+Fallout 3||C://Users/yeshj/Documents/My Games/Fallout3
+Fallout New Vegas||C://Users/yeshj/Documents/My Games/FalloutNV
+Fallout 4||C://Users/yeshj/Documents/My Games/Fallout4
+Fallout Shelter||C:\Users\yeshj\AppData\Local\FalloutShelter
+Garry's Mod||C:\Program Files (x86)\Steam\steamapps\common\GarrysMod\garrysmod\saves
+Geometry Dash||C:\Users\yeshj\AppData\Local\GeometryDash
+GTA V||C:\Users\yeshj\Documents\Rockstar Games\GTA V\Profiles\0F7268BC
+Gunpoint||C:\Program Files (x86)\Steam\steamapps\common\Gunpoint\Savegames
+Hacknet||C:\Program Files (x86)\Steam\userdata\82415640\365450\remote
+Half-Life||C:\Program Files (x86)\Steam\steamapps\common\Half-Life\valve\SAVE
+Half-Life 2||C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\hl2\save
+Half-Life 2 Episode One||C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\episodic\save
+Half-Life 2 Episode Two||C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\ep2\save
+Hand of Fate||C:\Program Files (x86)\Steam\userdata\82415640\266510\remote\HandOfFate
+Hollow Knight||C:\Users\yeshj\AppData\LocalLow\Team Cherry\Hollow Knight

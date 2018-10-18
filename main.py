@@ -3,11 +3,13 @@ from time import strftime
 import os
 import sys
 import re
+import ctypes
+import shlex
+import stat
 from filecmp import dircmp, cmp
 from tempfile import TemporaryFile
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog
-import ctypes
 
 from constants import *
 
@@ -16,6 +18,8 @@ failed_games = []
 skipped_games = []
 same_time_games = []
 identical_games = []
+
+game_name_dict = {}
 
 
 class TooManyArgumentsError(Exception):
@@ -54,6 +58,22 @@ class dircmp2(dircmp):
             sd.report_full_closure()
 
 
+class two_dict(dict):
+    def __init__(self, iterable):
+        super().__init__()
+        for pair in iterable:
+            if len(pair) == 3:
+                name, nickname, loc = pair
+                game_name_dict[name] = name
+                self.__setitem__(name, loc)
+                if nickname:
+                    game_name_dict[nickname] = name
+            elif len(pair) == 2:
+                name, loc = pair
+                game_name_dict[name] = name
+                self.__setitem__(name, loc)
+
+
 class FileSelectDialog(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -66,7 +86,13 @@ class FileSelectDialog(QtWidgets.QWidget):
         return self.dialog.selectedFiles()[0]
 
 
-def save_logic(game_dict):
+def save_logic(game_dict):  # last_dsts[name]에 name이 없을 경우에 대한 대비가 돼 있지 않으므로 game_dict 넘겨줄 때 처리 요망
+    succeeded_games.clear()
+    failed_games.clear()
+    skipped_games.clear()
+    same_time_games.clear()
+    identical_games.clear()
+
     for name, src in game_dict.items():
         name = name.strip()
         src = src.strip()
@@ -152,6 +178,7 @@ def save(_name, _src):
     except NotADirectoryError:
         if not os.path.exists(save_dst):
             os.makedirs(save_dst)
+            os.chmod(save_dst, stat.S_IWUSR)
             shutil.copy(_src, save_dst)
             last_dsts[_name] = save_dst + _src.split('/')[-1]
         else:
@@ -180,35 +207,41 @@ def edit_options(showTF=False):
 
     for option, value in options.items():
         count += 1
-        if showTF and value in "01":
+        if showTF and (value == "0" or value == "1"):
             value = "True" if value == "1" else "False"
-        option_list.append(value)
-        print(f"{number:3}  {option:30}  {value}")
+        if not showTF and (value == "True" or value == "False"):
+            value = "1" if value == "True" else "0"
+        option_list.append(option)
+        print_color(f"[{count:2}]  {option:30} : {value}", FORE_GREEN)
 
     while True:
-        answer = eval(input("변경할 옵션의 번호를 입력해 주세요: "))
-        if isinstance(answer, int) and 0 < answer <= count:
+        answer1 = input("\n변경할 옵션의 번호를 입력해 주세요 (취소하려면 -1을 입력하세요): ")
+        if answer1.isdigit() and 0 < int(answer1) <= count:
             while True:
-                answer2 = eval(input(option_list[answer - 1] + "를 무엇으로 변경하시겠습니까? 0/1로 대답해 주세요: "))
+                answer2 = input(option_list[int(answer1) - 1] + "를 무엇으로 변경하시겠습니까? 0/1로 대답해 주세요: ")
                 if answer2 == "0":
-                    options[option_list[answer - 1]] = "0"
+                    options[option_list[int(answer1) - 1]] = "0"
                     break
                 elif answer2 == "1":
-                    options[option_list[answer - 1]] = "1"
+                    options[option_list[int(answer1) - 1]] = "1"
                     break
                 else:
-                    print("올바른 값을 입력해 주세요.")
-            print("성공적으로 변경되었습니다.")
+                    print_color("올바른 값을 입력해 주세요.", FORE_RED)
+            print("성공적으로 변경되었습니다.\n")
             break
+        elif answer1 == "-1":
+            return
         else:
-            print("올바른 번호를 입력해 주세요.")
+            print_color("올바른 번호를 입력해 주세요.", FORE_RED)
 
-    with open("option.txt", "r+", encoding='utf-8') as option_file:
-        pattern = option_list[answer - 1] + r" = ([01]|(\w)+)\s*"
-        original = option_file.read()
+    with open("options.txt", "r+", encoding='utf-8') as _option_file:
+        pattern = option_list[int(answer1) - 1] + r" = ([01]|(\w)+)\s*"
+        original = _option_file.read()
         target_string = re.search(pattern, original).group()
-        changed = original.replace(target_string, target_string[:target_string.find('=') + 1] + ' ' + options[option_list[answer - 1]] + '\n')
-        option_file.write(changed)
+        alter_text = target_string[:target_string.find('=') + 1] + ' ' + options[option_list[int(answer1) - 1]] + '\n'
+        _option_file.seek(0)
+        _option_file.write(original.replace(target_string, alter_text))
+        _option_file.truncate()
 
 
 def set_cmd_color(color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
@@ -221,8 +254,17 @@ def print_color(_msg, color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
     set_cmd_color(FORE_WHITE, handle)
 
 
+def delete_error(func, path, exc_info):
+    if not os.access(path, os.W_OK):
+        os.chmod(path, stat.S_IWUSR)
+        func(path)
+    else:
+        print_color("파일을 지우는 도중 에러가 발생했습니다.", FORE_RED)
+        print_color(exc_info[1], FORE_RED)
+
+
 def eval_command(**kwargs):
-    if kwargs['command'] == 'help': # help [command]
+    if kwargs['command'] == 'help':  # help [command]
         if len(kwargs['args']) == 0:
             print_color(SYMBOL_MEANING_EXPLANATION, FORE_GRAY)
             for _command in COMMANDS:
@@ -240,75 +282,86 @@ def eval_command(**kwargs):
                 except KeyError:
                     print_color('존재하지 않는 명령어입니다.\n', FORE_YELLOW)
 
-    elif kwargs['command'] == 'save': # save [game_name+]
+    elif kwargs['command'] == 'save':  # save [game_name+]
         if len(kwargs['args']) == 0:
             if os.path.isdir(save_root):
                 save_logic(srcs)
             else:
                 print_color("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)\n", FORE_RED)
         else:
-            pass
+            temp_dict = {}
+            for name in kwargs['args']:
+                if name not in game_name_dict:
+                    print_color(name + "이란 게임은 존재하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
+                else:
+                    temp_dict[game_name_dict[name]] = srcs[game_name_dict[name]]
+            save_logic(temp_dict)
 
     elif kwargs['command'] == 'path':
         if kwargs['args']:
-            if kwargs['args'][0] == 'add': # path add <game_name> [isAFile = 0] [nickname]
+            if kwargs['args'][0] == 'add':  # path add <game_name> [isAFile=0] [nickname]
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 elif len(kwargs['args']) == 2:
-                    pass
+                    pass  # TODO: 게임 이름만 주어짐
                 elif len(kwargs['args']) == 3:
-                    pass
+                    pass  # TODO: 파일인지의 여부까지 주어짐
                 elif len(kwargs['args']) == 4:
-                    pass
+                    pass  # TODO: 닉네임까지 주어짐
                 else:
                     raise TooManyArgumentsError
-            elif kwargs['args'][0] == 'edit': # path edit <game_name|'dst'> ['name'|{'path'}|'nickname'|'toggle']
+            elif kwargs['args'][0] == 'edit':  # path edit <game_name|'dst'> ['name'|{'path'}|'nickname'|'toggle']
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 elif len(kwargs['args']) == 2:
-                    pass
+                    pass  # TODO: 게임 이름 또는 dst가 주어짐
                 elif len(kwargs['args']) == 3:
-                    pass
+                    pass  # TODO: 모드가 주어짐
                 else:
                     raise TooManyArgumentsError
-            elif kwargs['args'][0] == 'show': # path show [game_name+|'dst']
+            elif kwargs['args'][0] == 'show':  # path show [game_name+|'dst']
                 if len(kwargs['args']) == 1:
-                    pass
+                    pass  # TODO: 모든 경로 보여주기
                 elif len(kwargs['args']) == 2:
-                    pass
+                    pass  # TODO: 게임 한 개 또는 dst가 주어짐
                 else:
-                    pass
-            elif kwargs['args'][0] == 'del': # path del <game_name+>
+                    pass  # TODO: 게임들이 주어짐
+            elif kwargs['args'][0] == 'del':  # path del <game_name+>
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 else:
-                    pass
+                    pass  # TODO: 게임들이 주어짐
             else:
                 raise ArgumentTypeMismatchError('add, edit, show, del 중 하나를 입력해 주세요.')
         else:
             raise TooFewArgumentError('add, edit, show, del 중 하나를 추가로 입력해 주세요.')
 
-    elif kwargs['command'] == 'del': # del <game_name+|date [date]> [trackHistory=0]
+    elif kwargs['command'] == 'del':  # del <game_name+|date [date]> [trackHistory=0]
         if len(kwargs['args']) == 0:
             raise TooFewArgumentError
         elif len(kwargs['args']) == 1:
-            pass
+            pass  # TODO: 게임 한 개 또는 특정 날짜가 주어짐
         elif len(kwargs['args']) == 2:
-            pass
+            pass  # TODO: 게임 두 개 또는 기간이 주어짐 / 게임 한 개 또는 특정 날짜가 주어지고 trackHistory가 주어짐
         elif len(kwargs['args']) == 3:
-            pass
+            pass  # TODO: 게임 두 개 또는 기간이 주어지고 trackHistory가 주어짐 / 게임 세 개가 주어짐
         else:
-            pass
+            pass  # TODO: 게임 여러 개가 주어지고 TrackHistory가 주어질 수 있음
 
-    elif kwargs['command'] == 'delall': # delall [trackHistory=0]
+    elif kwargs['command'] == 'delall':  # delall
         if len(kwargs['args']) == 0:
-            pass
-        elif len(kwargs['args']) == 1:
-            pass
+            print_color("※이 명령어는 백업본을 모두 삭제합니다! Y를 입력하시면 진행합니다.", FORE_YELLOW)
+            if input() == "Y":
+                shutil.rmtree(save_root, False, delete_error)
+                print("모든 백업본의 삭제가 완료되었습니다.")
+                if not os.path.isdir(save_root):
+                    os.makedirs(save_root)
+                    os.chmod(save_root, stat.S_IWUSR)
+
         else:
             raise TooManyArgumentsError
 
-    elif kwargs['command'] == 'option': # option [showTF=0]
+    elif kwargs['command'] == 'option':  # option [showTF=0]
         if len(kwargs['args']) == 0:
             edit_options()
         elif len(kwargs['args']) == 1:
@@ -321,20 +374,20 @@ def eval_command(**kwargs):
         else:
             raise TooManyArgumentsError
 
-    elif kwargs['command'] == 'exit': # exit
+    elif kwargs['command'] == 'exit':  # exit
         if len(kwargs['args']) == 0:
             sys.exit()
         else:
             raise TooManyArgumentsError
 
     else:
-        print_color('존재하지 않는 명령어입니다. 도움말을 보려면 help를 치세요.\n', FORE_YELLOW)
+        print_color('존재하지 않는 명령어입니다. 도움말을 보려면 help를 치세요.\n', FORE_GRAPEFRUIT)
 
 
 with open("locations.txt", encoding="utf-8") as gm_loc_file:
-    srcs = dict(filter(lambda x: len(x) != 1,
-                       map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
-                           gm_loc_file.readlines())))  # TODO: nickname system
+    srcs = two_dict(filter(lambda x: len(x) != 1,
+                           map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
+                               gm_loc_file.readlines())))
 
 with open("last_saved.txt", 'a+', encoding='utf-8') as last_saved_file:
     last_saved_file.seek(0)
@@ -368,7 +421,7 @@ if options['USE_COMMAND'] == '-1':
 if eval(options['USE_COMMAND']):
     print('도움말을 보려면 help를 치세요.\n')
     while True:
-        command = input(">>").split()  # TODO: not splitting spaces inside ""
+        command = shlex.split(input(">>"))
         if command:
             try:
                 eval_command(command=command[0], args=command[1:])
