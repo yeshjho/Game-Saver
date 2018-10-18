@@ -2,6 +2,7 @@ import shutil
 from time import strftime
 import os
 import sys
+import re
 from filecmp import dircmp, cmp
 from tempfile import TemporaryFile
 from PyQt5 import QtWidgets
@@ -174,7 +175,40 @@ def report_result(message, game_list, color=FORE_WHITE):
 
 
 def edit_options(showTF=False):
-    pass
+    option_list = []
+    count = 0
+
+    for option, value in options.items():
+        count += 1
+        if showTF and value in "01":
+            value = "True" if value == "1" else "False"
+        option_list.append(value)
+        print(f"{number:3}  {option:30}  {value}")
+
+    while True:
+        answer = eval(input("변경할 옵션의 번호를 입력해 주세요: "))
+        if isinstance(answer, int) and 0 < answer <= count:
+            while True:
+                answer2 = eval(input(option_list[answer - 1] + "를 무엇으로 변경하시겠습니까? 0/1로 대답해 주세요: "))
+                if answer2 == "0":
+                    options[option_list[answer - 1]] = "0"
+                    break
+                elif answer2 == "1":
+                    options[option_list[answer - 1]] = "1"
+                    break
+                else:
+                    print("올바른 값을 입력해 주세요.")
+            print("성공적으로 변경되었습니다.")
+            break
+        else:
+            print("올바른 번호를 입력해 주세요.")
+
+    with open("option.txt", "r+", encoding='utf-8') as option_file:
+        pattern = option_list[answer - 1] + r" = ([01]|(\w)+)\s*"
+        original = option_file.read()
+        target_string = re.search(pattern, original).group()
+        changed = original.replace(target_string, target_string[:target_string.find('=') + 1] + ' ' + options[option_list[answer - 1]] + '\n')
+        option_file.write(changed)
 
 
 def set_cmd_color(color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
@@ -188,7 +222,7 @@ def print_color(_msg, color, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
 
 
 def eval_command(**kwargs):
-    if kwargs['command'] == 'help':
+    if kwargs['command'] == 'help': # help [command]
         if len(kwargs['args']) == 0:
             print_color(SYMBOL_MEANING_EXPLANATION, FORE_GRAY)
             for _command in COMMANDS:
@@ -206,7 +240,7 @@ def eval_command(**kwargs):
                 except KeyError:
                     print_color('존재하지 않는 명령어입니다.\n', FORE_YELLOW)
 
-    elif kwargs['command'] == 'save':
+    elif kwargs['command'] == 'save': # save [game_name+]
         if len(kwargs['args']) == 0:
             if os.path.isdir(save_root):
                 save_logic(srcs)
@@ -217,20 +251,44 @@ def eval_command(**kwargs):
 
     elif kwargs['command'] == 'path':
         if kwargs['args']:
-            if kwargs['args'][0] == 'add':
-                pass
-            elif kwargs['args'][0] == 'edit':
-                pass
-            elif kwargs['args'][0] == 'show':
-                pass
-            elif kwargs['args'][0] == 'del':
-                pass
+            if kwargs['args'][0] == 'add': # path add <game_name> [isAFile = 0] [nickname]
+                if len(kwargs['args']) == 1:
+                    raise TooFewArgumentError
+                elif len(kwargs['args']) == 2:
+                    pass
+                elif len(kwargs['args']) == 3:
+                    pass
+                elif len(kwargs['args']) == 4:
+                    pass
+                else:
+                    raise TooManyArgumentsError
+            elif kwargs['args'][0] == 'edit': # path edit <game_name|'dst'> ['name'|{'path'}|'nickname'|'toggle']
+                if len(kwargs['args']) == 1:
+                    raise TooFewArgumentError
+                elif len(kwargs['args']) == 2:
+                    pass
+                elif len(kwargs['args']) == 3:
+                    pass
+                else:
+                    raise TooManyArgumentsError
+            elif kwargs['args'][0] == 'show': # path show [game_name+|'dst']
+                if len(kwargs['args']) == 1:
+                    pass
+                elif len(kwargs['args']) == 2:
+                    pass
+                else:
+                    pass
+            elif kwargs['args'][0] == 'del': # path del <game_name+>
+                if len(kwargs['args']) == 1:
+                    raise TooFewArgumentError
+                else:
+                    pass
             else:
                 raise ArgumentTypeMismatchError('add, edit, show, del 중 하나를 입력해 주세요.')
         else:
             raise TooFewArgumentError('add, edit, show, del 중 하나를 추가로 입력해 주세요.')
 
-    elif kwargs['command'] == 'del':
+    elif kwargs['command'] == 'del': # del <game_name+|date [date]> [trackHistory=0]
         if len(kwargs['args']) == 0:
             raise TooFewArgumentError
         elif len(kwargs['args']) == 1:
@@ -240,9 +298,9 @@ def eval_command(**kwargs):
         elif len(kwargs['args']) == 3:
             pass
         else:
-            raise TooManyArgumentsError
+            pass
 
-    elif kwargs['command'] == 'delall':
+    elif kwargs['command'] == 'delall': # delall [trackHistory=0]
         if len(kwargs['args']) == 0:
             pass
         elif len(kwargs['args']) == 1:
@@ -250,7 +308,7 @@ def eval_command(**kwargs):
         else:
             raise TooManyArgumentsError
 
-    elif kwargs['command'] == 'option':
+    elif kwargs['command'] == 'option': # option [showTF=0]
         if len(kwargs['args']) == 0:
             edit_options()
         elif len(kwargs['args']) == 1:
@@ -263,7 +321,7 @@ def eval_command(**kwargs):
         else:
             raise TooManyArgumentsError
 
-    elif kwargs['command'] == 'exit':
+    elif kwargs['command'] == 'exit': # exit
         if len(kwargs['args']) == 0:
             sys.exit()
         else:
@@ -292,47 +350,47 @@ with open("options.txt", encoding='utf-8') as option_file:
 save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs['SaveLocation'] + '/'
 del srcs['SaveLocation']
 
-if __name__ == "__main__":
-    set_cmd_color(FORE_WHITE)
-    print_color('제작자: yeshjho\n', FORE_CYAN)
 
-    if options['USE_COMMAND'] == '-1':
-        answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
-        while answer != 'y' and answer != 'n' and answer != '':
-            answer = input("y/n 중 하나를 입력해 주세요: ")
-        options['USE_COMMAND'] = '1' if answer == 'y' or answer == '' else '0'
-        with open('options.txt', 'r+', encoding='utf-8') as option_file:
-            contain = option_file.read().replace('-1', options['USE_COMMAND'])
-            option_file.seek(0)
-            option_file.write(contain)
-            option_file.truncate()
+set_cmd_color(FORE_WHITE)
+print_color('제작자: yeshjho\n', FORE_CYAN)
 
-    if eval(options['USE_COMMAND']):
-        print('도움말을 보려면 help를 치세요.\n')
-        while True:
-            command = input(">>").split()  # TODO: not splitting spaces inside ""
-            if command:
-                try:
-                    eval_command(command=command[0], args=command[1:])
-                except TooManyArgumentsError as msg:
-                    print_color('인수가 너무 많습니다.', FORE_RED)
-                    if str(msg):
-                        print_color(str(msg), FORE_RED)
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                    print()
-                except TooFewArgumentError as msg:
-                    print_color('인수가 너무 적습니다.', FORE_RED)
-                    if str(msg):
-                        print_color(str(msg), FORE_RED)
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                    print()
-                except ArgumentTypeMismatchError as msg:
-                    print_color('인수가 적절하지 않습니다.', FORE_RED)
-                    if str(msg):
-                        print_color(str(msg), FORE_RED)
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                    print()
+if options['USE_COMMAND'] == '-1':
+    answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
+    while answer != 'y' and answer != 'n' and answer != '':
+        answer = input("y/n 중 하나를 입력해 주세요: ")
+    options['USE_COMMAND'] = '1' if answer == 'y' or answer == '' else '0'
+    with open('options.txt', 'r+', encoding='utf-8') as option_file:
+        contain = option_file.read().replace('-1', options['USE_COMMAND'])
+        option_file.seek(0)
+        option_file.write(contain)
+        option_file.truncate()
 
-    else:
-        while True:
-            break
+if eval(options['USE_COMMAND']):
+    print('도움말을 보려면 help를 치세요.\n')
+    while True:
+        command = input(">>").split()  # TODO: not splitting spaces inside ""
+        if command:
+            try:
+                eval_command(command=command[0], args=command[1:])
+            except TooManyArgumentsError as msg:
+                print_color('인수가 너무 많습니다.', FORE_RED)
+                if str(msg):
+                    print_color(str(msg), FORE_RED)
+                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                print()
+            except TooFewArgumentError as msg:
+                print_color('인수가 너무 적습니다.', FORE_RED)
+                if str(msg):
+                    print_color(str(msg), FORE_RED)
+                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                print()
+            except ArgumentTypeMismatchError as msg:
+                print_color('인수가 적절하지 않습니다.', FORE_RED)
+                if str(msg):
+                    print_color(str(msg), FORE_RED)
+                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                print()
+
+else:
+    while True:
+        break
