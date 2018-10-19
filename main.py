@@ -1,11 +1,13 @@
 import shutil
 from time import strftime
+from datetime import date
 import os
 import sys
 import re
 import ctypes
 import shlex
 import stat
+import glob
 from filecmp import dircmp, cmp
 from tempfile import TemporaryFile
 from PyQt5 import QtWidgets
@@ -31,6 +33,10 @@ class TooFewArgumentError(Exception):
 
 
 class ArgumentTypeMismatchError(Exception):
+    pass
+
+
+class FileException(Exception):
     pass
 
 
@@ -64,14 +70,18 @@ class two_dict(dict):
         for pair in iterable:
             if len(pair) == 3:
                 name, nickname, loc = pair
-                game_name_dict[name] = name
-                self.__setitem__(name, loc)
+                game_name_dict[name.strip()] = name.strip()
+                if name.startswith("!"):
+                    game_name_dict[name.strip()[1:]] = name.strip()
+                self.__setitem__(name.strip(), loc.strip())
                 if nickname:
-                    game_name_dict[nickname] = name
+                    game_name_dict[nickname.strip()] = name.strip()
             elif len(pair) == 2:
                 name, loc = pair
-                game_name_dict[name] = name
-                self.__setitem__(name, loc)
+                game_name_dict[name.strip()] = name.strip()
+                if name.startswith("!"):
+                    game_name_dict[name.strip()[1:]] = name.strip()
+                self.__setitem__(name.strip(), loc.strip())
 
 
 class FileSelectDialog(QtWidgets.QWidget):
@@ -86,7 +96,7 @@ class FileSelectDialog(QtWidgets.QWidget):
         return self.dialog.selectedFiles()[0]
 
 
-def save_logic(game_dict):  # last_dsts[name]에 name이 없을 경우에 대한 대비가 돼 있지 않으므로 game_dict 넘겨줄 때 처리 요망
+def save_logic(game_dict):
     succeeded_games.clear()
     failed_games.clear()
     skipped_games.clear()
@@ -94,9 +104,6 @@ def save_logic(game_dict):  # last_dsts[name]에 name이 없을 경우에 대한
     identical_games.clear()
 
     for name, src in game_dict.items():
-        name = name.strip()
-        src = src.strip()
-
         if name.startswith('!'):
             skipped_games.append(name[:1])
             print_color(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_GRAPEFRUIT)
@@ -191,8 +198,50 @@ def save(_name, _src):
     return True
 
 
-def delete(game_dict):
-    pass
+def delete(game_names):
+    for name in game_names:
+        try:
+            shutil.rmtree(save_root + game_name_dict[name] + "/", False, delete_error)
+        except FileException:
+            return
+
+        print_color(name + "의 백업본 삭제 완료했습니다.", FORE_BLUE)
+
+
+def delete_date(*dates):
+    if len(dates) == 1:
+        for path in glob.glob(save_root + '**/' + dates[0] + "*/", recursive=True):
+            try:
+                shutil.rmtree(path, False, delete_error)
+            except FileException:
+                return
+    else:
+        pass  # TODO
+
+
+def delete_path(names):
+    for name in names:
+        with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
+            original = loc_file.read()
+            pat = r'[ \t!]*' + game_name_dict[name] + r'.+\n'
+            target_string = re.search(pat, original).group()
+            changed_text = original.replace(target_string, '')
+            loc_file.seek(0)
+            loc_file.write(changed_text)
+            loc_file.truncate()
+        del srcs[game_name_dict[name]]
+        del src_list[game_name_dict[name]]
+        del game_name_dict[game_name_dict[name]]
+        try:
+            del game_name_dict["!" + name]
+        except KeyError:
+            pass
+        try:
+            del game_name_dict[name]
+        except KeyError:
+            pass
+
+        print_color(name + "의 경로 삭제 완료했습니다.", FORE_BLUE)
 
 
 def report_result(message, game_list, color=FORE_WHITE):
@@ -261,6 +310,7 @@ def delete_error(func, path, exc_info):
     else:
         print_color("파일을 지우는 도중 에러가 발생했습니다.", FORE_RED)
         print_color(exc_info[1], FORE_RED)
+        raise FileException
 
 
 def eval_command(**kwargs):
@@ -292,7 +342,7 @@ def eval_command(**kwargs):
             temp_dict = {}
             for name in kwargs['args']:
                 if name not in game_name_dict:
-                    print_color(name + "이란 게임은 존재하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
+                    print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
                 else:
                     temp_dict[game_name_dict[name]] = srcs[game_name_dict[name]]
             save_logic(temp_dict)
@@ -310,49 +360,90 @@ def eval_command(**kwargs):
                     pass  # TODO: 닉네임까지 주어짐
                 else:
                     raise TooManyArgumentsError
+
             elif kwargs['args'][0] == 'edit':  # path edit <game_name|'dst'> ['name'|{'path'}|'nickname'|'toggle']
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 elif len(kwargs['args']) == 2:
-                    pass  # TODO: 게임 이름 또는 dst가 주어짐
+                    if kwargs['args'][1] == 'dst':
+                        pass  # TODO: dst가 주어짐
+                    else:
+                        pass  # TODO: 게임 이름이 주어짐
                 elif len(kwargs['args']) == 3:
-                    pass  # TODO: 모드가 주어짐
+                    pass  # TODO: 모드가 추가로 주어짐
                 else:
                     raise TooManyArgumentsError
+
             elif kwargs['args'][0] == 'show':  # path show [game_name+|'dst']
                 if len(kwargs['args']) == 1:
-                    pass  # TODO: 모든 경로 보여주기
+                    print_color('{0:30}{1:15}{2}\n'.format("NAME", "NICKNAME", "LOCATION"), FORE_GREEN)
+                    for name, nickname, src in src_list:
+                        print(f'{name:30}{nickname:15}{src}')
                 elif len(kwargs['args']) == 2:
-                    pass  # TODO: 게임 한 개 또는 dst가 주어짐
+                    if kwargs['args'][1] == 'dst':
+                        print(f'Save Location: {save_root}')
+                    else:
+                        name = kwargs['args'][1]
+                        if name in game_name_dict:
+                            print(f'{name}: {srcs[game_name_dict[name]]}')
+                        else:
+                            print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
                 else:
-                    pass  # TODO: 게임들이 주어짐
+                    print_color('{0:30}{1}\n'.format("GAME", "LOCATION"), FORE_GREEN)
+                    for name in kwargs['args'][1:]:
+                        if name in game_name_dict:
+                            print(f'{name:30}{srcs[game_name_dict[name]]}')
+                        else:
+                            print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+
             elif kwargs['args'][0] == 'del':  # path del <game_name+>
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 else:
-                    pass  # TODO: 게임들이 주어짐
+                    temp_list = []
+                    for name in kwargs['args'][1:]:
+                        if name in game_name_dict:
+                            temp_list.append(game_name_dict[name])
+                        else:
+                            print_color(name + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
+                    delete_path(temp_list)  # pass date object
             else:
                 raise ArgumentTypeMismatchError('add, edit, show, del 중 하나를 입력해 주세요.')
+
         else:
             raise TooFewArgumentError('add, edit, show, del 중 하나를 추가로 입력해 주세요.')
 
-    elif kwargs['command'] == 'del':  # del <game_name+|date [date]> [trackHistory=0]
+    elif kwargs['command'] == 'del':  # del <game_name+|date [date]>
         if len(kwargs['args']) == 0:
-            raise TooFewArgumentError
+            raise TooFewArgumentError('전체 삭제는 delall을 이용하세요.')
         elif len(kwargs['args']) == 1:
-            pass  # TODO: 게임 한 개 또는 특정 날짜가 주어짐
+            pat = r'[123456789][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+            if re.search(pat, kwargs['args'][0]):
+                try:
+                    pass  # TODO
+                except ValueError:
+                    pass
+            else:
+                delete(list(kwargs['args'][0]))
         elif len(kwargs['args']) == 2:
-            pass  # TODO: 게임 두 개 또는 기간이 주어짐 / 게임 한 개 또는 특정 날짜가 주어지고 trackHistory가 주어짐
-        elif len(kwargs['args']) == 3:
-            pass  # TODO: 게임 두 개 또는 기간이 주어지고 trackHistory가 주어짐 / 게임 세 개가 주어짐
+            pass  # TODO: 게임 두 개 또는 기간이 주어짐
         else:
-            pass  # TODO: 게임 여러 개가 주어지고 TrackHistory가 주어질 수 있음
+            temp_list = []
+            for name in kwargs['args']:
+                if name in game_name_dict:
+                    temp_list.append(game_name_dict[name])
+                else:
+                    print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+            delete(temp_list)
 
     elif kwargs['command'] == 'delall':  # delall
         if len(kwargs['args']) == 0:
             print_color("※이 명령어는 백업본을 모두 삭제합니다! Y를 입력하시면 진행합니다.", FORE_YELLOW)
             if input() == "Y":
-                shutil.rmtree(save_root, False, delete_error)
+                try:
+                    shutil.rmtree(save_root, False, delete_error)
+                except FileException:
+                    pass
                 print("모든 백업본의 삭제가 완료되었습니다.")
                 if not os.path.isdir(save_root):
                     os.makedirs(save_root)
@@ -385,9 +476,12 @@ def eval_command(**kwargs):
 
 
 with open("locations.txt", encoding="utf-8") as gm_loc_file:
-    srcs = two_dict(filter(lambda x: len(x) != 1,
+    src_list = list(filter(lambda x: len(x) != 1,
                            map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
                                gm_loc_file.readlines())))
+    srcs = two_dict(src_list)
+    src_list = list(map(lambda x: (x[0].strip(), x[1].strip(), x[2].strip()),
+                        list(filter(lambda x: len(x) != 2, src_list))))
 
 with open("last_saved.txt", 'a+', encoding='utf-8') as last_saved_file:
     last_saved_file.seek(0)
