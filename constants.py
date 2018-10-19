@@ -41,7 +41,7 @@ COMMAND_SYNTAX = {'help': 'help [command]',
                   'path edit': 'path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]',
                   'path show': 'path show [game_name+|"dst"]',
                   'path del': 'path del <game_name+>',
-                  'del': 'del <game_name|date [date]> [trackHistory=0]',
+                  'del': 'del <game_name|date [date]>',
                   'delall': 'delall',
                   'option': 'option [showTF=0]',
                   'exit': 'exit'}
@@ -77,8 +77,8 @@ COMMAND_EXPLANATION_DETAILED = {'help': '도움말을 봅니다.\n'
                                        'game_name이 주어지면 해당 이름 또는 별칭을 가진 게임들의 백업본만 삭제합니다.\n'
                                        'date가 1개 주어지면 해당 날짜의 백업본을 삭제합니다.\n'
                                        'date가 2개 주어지면 해당 날짜 사이의 모든 백업본을 삭제합니다.\n'
-                                       'date는 YYYY.MM.DD의 형태로 작성합니다.\n'
-                                       'trackHistory가 1이면 백업 경로가 바뀐 적이 있어도 이전 경로의 백업본까지 추적해 삭제합니다.',
+                                       'date는 YYYY-MM-DD의 형태로 작성합니다.\n'
+                                       '"~ date"의 형태는 ~까지를, "date ~"의 형태는 ~부터를 표현할 수 있습니다.',
                                 'delall': '현재 백업 파일이 저장되는 경로에 있는 모든 백업본을 삭제합니다.',
                                 'option': '옵션 값을 보고 수정합니다.\n'
                                           'showTF가 1이면 1/0 대신 True/False 형식으로 표시합니다.',
