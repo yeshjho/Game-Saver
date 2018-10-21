@@ -200,23 +200,33 @@ def save(_name, _src):
 
 def delete(game_names):
     for name in game_names:
-        try:
-            shutil.rmtree(save_root + game_name_dict[name] + "/", False, delete_error)
-        except FileException:
+        if os.path.exists(save_root + game_name_dict[name] + "/"):
+            try:
+                shutil.rmtree(save_root + game_name_dict[name] + "/", False, delete_error)
+            except FileException:
+                return
+        else:
+            print_color(name + "게임의 백업본이 존재하지 않습니다.", FORE_YELLOW)
             return
 
-        print_color(name + "의 백업본 삭제 완료했습니다.", FORE_BLUE)
+        print(name + "의 백업본 삭제 완료했습니다.")
 
 
 def delete_date(*dates):
     if len(dates) == 1:
-        for path in glob.glob(save_root + '**/' + dates[0] + "*/", recursive=True):
+        for path in glob.glob(save_root + '**/' + dates[0].isoformat() + "*/", recursive=True):
             try:
                 shutil.rmtree(path, False, delete_error)
             except FileException:
                 return
+        print(dates[0].isoformat() + "의 백업본을 모두 삭제했습니다.")
     else:
-        pass  # TODO
+        if isinstance(dates[0], date) and isinstance(dates[1], date):
+            pass
+        elif isinstance(dates[0], str):
+            pass
+        else:
+            pass  # TODO: 세이브 루트 내 모든 경로 가져와서 date 인스턴스 만들고 비교 후 삭제 결정
 
 
 def delete_path(names):
@@ -230,7 +240,7 @@ def delete_path(names):
             loc_file.write(changed_text)
             loc_file.truncate()
         del srcs[game_name_dict[name]]
-        del src_list[game_name_dict[name]]
+        src_list.remove(list(filter(lambda x: True if x[0] == game_name_dict[name] else False, src_list))[0])
         del game_name_dict[game_name_dict[name]]
         try:
             del game_name_dict["!" + name]
@@ -240,7 +250,6 @@ def delete_path(names):
             del game_name_dict[name]
         except KeyError:
             pass
-
         print_color(name + "의 경로 삭제 완료했습니다.", FORE_BLUE)
 
 
@@ -250,15 +259,15 @@ def report_result(message, game_list, color=FORE_WHITE):
         print('\t' + _game)
 
 
-def edit_options(showTF=False):
+def edit_options(show_tf=False):
     option_list = []
     count = 0
 
     for option, value in options.items():
         count += 1
-        if showTF and (value == "0" or value == "1"):
+        if show_tf and (value == "0" or value == "1"):
             value = "True" if value == "1" else "False"
-        if not showTF and (value == "True" or value == "False"):
+        if not show_tf and (value == "True" or value == "False"):
             value = "1" if value == "True" else "0"
         option_list.append(option)
         print_color(f"[{count:2}]  {option:30} : {value}", FORE_GREEN)
@@ -347,7 +356,7 @@ def eval_command(**kwargs):
                     temp_dict[game_name_dict[name]] = srcs[game_name_dict[name]]
             save_logic(temp_dict)
 
-    elif kwargs['command'] == 'path':
+    elif kwargs['command'] == 'path':  # TODO: 이미 있는 이름을 추가하려 할 때
         if kwargs['args']:
             if kwargs['args'][0] == 'add':  # path add <game_name> [isAFile=0] [nickname]
                 if len(kwargs['args']) == 1:
@@ -403,10 +412,10 @@ def eval_command(**kwargs):
                     temp_list = []
                     for name in kwargs['args'][1:]:
                         if name in game_name_dict:
-                            temp_list.append(game_name_dict[name])
+                            temp_list.append(name)
                         else:
                             print_color(name + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
-                    delete_path(temp_list)  # pass date object
+                    delete_path(temp_list)
             else:
                 raise ArgumentTypeMismatchError('add, edit, show, del 중 하나를 입력해 주세요.')
 
@@ -417,21 +426,43 @@ def eval_command(**kwargs):
         if len(kwargs['args']) == 0:
             raise TooFewArgumentError('전체 삭제는 delall을 이용하세요.')
         elif len(kwargs['args']) == 1:
-            pat = r'[123456789][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-            if re.search(pat, kwargs['args'][0]):
+            date_search = re.search(PATTERN_DATE, kwargs['args'][0])
+            if date_search:
+                date_str = date_search.group()
                 try:
-                    pass  # TODO
+                    delete_date(date(int(date_str[:4]), int(date_str[5:7]), int(date_str[8:])))
                 except ValueError:
-                    pass
+                    print_color("올바른 날짜를 입력해 주세요.", FORE_YELLOW)
             else:
-                delete(list(kwargs['args'][0]))
+                if kwargs['args'][0] in game_name_dict:
+                    delete(kwargs['args'])
+                else:
+                    print_color(kwargs['args'][0] + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
         elif len(kwargs['args']) == 2:
-            pass  # TODO: 게임 두 개 또는 기간이 주어짐
+            date_search1 = re.search(PATTERN_DATE, kwargs['args'][0])
+            date_search2 = re.search(PATTERN_DATE, kwargs['args'][1])
+            date1_str = date_search1.group() if date_search1 else None
+            date2_str = date_search2.group() if date_search2 else None
+            if date_search1 and date_search2:
+                delete_date(date(int(date1_str[:4]), int(date1_str[5:7]), int(date1_str[8:])),
+                            date(int(date2_str[:4]), int(date2_str[5:7]), int(date2_str[8:])))
+            elif date_search1 and kwargs['args'][1] == "~":
+                delete_date(date(int(date1_str[:4]), int(date1_str[5:7]), int(date1_str[8:])), "~")
+            elif kwargs['args'][0] == "~" and date_search2:
+                delete_date("~", date(int(date2_str[:4]), int(date2_str[5:7]), int(date2_str[8:])))
+            else:
+                temp_list = []
+                for name in kwargs['args']:
+                    if name in game_name_dict:
+                        temp_list.append(name)
+                    else:
+                        print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                delete(temp_list)
         else:
             temp_list = []
             for name in kwargs['args']:
                 if name in game_name_dict:
-                    temp_list.append(game_name_dict[name])
+                    temp_list.append(name)
                 else:
                     print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
             delete(temp_list)
@@ -523,19 +554,31 @@ if eval(options['USE_COMMAND']):
                 print_color('인수가 너무 많습니다.', FORE_RED)
                 if str(msg):
                     print_color(str(msg), FORE_RED)
-                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                try:
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                except KeyError:
+                    print_color(COMMAND_SYNTAX[command[0] + ' ' + command[1]], FORE_RED)
                 print()
             except TooFewArgumentError as msg:
                 print_color('인수가 너무 적습니다.', FORE_RED)
                 if str(msg):
                     print_color(str(msg), FORE_RED)
-                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                try:
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                except KeyError:
+                    try:
+                        print_color(COMMAND_SYNTAX[command[0] + ' ' + command[1]], FORE_RED)
+                    except KeyError and IndexError:
+                        pass
                 print()
             except ArgumentTypeMismatchError as msg:
                 print_color('인수가 적절하지 않습니다.', FORE_RED)
                 if str(msg):
                     print_color(str(msg), FORE_RED)
-                print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                try:
+                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                except KeyError:
+                    pass
                 print()
 
 else:

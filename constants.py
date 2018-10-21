@@ -41,7 +41,7 @@ COMMAND_SYNTAX = {'help': 'help [command]',
                   'path edit': 'path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]',
                   'path show': 'path show [game_name+|"dst"]',
                   'path del': 'path del <game_name+>',
-                  'del': 'del <game_name|date [date]>',
+                  'del': 'del <game_name+|date [date]>',
                   'delall': 'delall',
                   'option': 'option [showTF=0]',
                   'exit': 'exit'}
@@ -96,3 +96,5 @@ SYMBOL_MEANING_EXPLANATION = '''~사용한 기호들의 의미~
 게임 이름에 공백이 들어간다면 명령어에 입력할 때 따옴표("")로 묶어주세요.
 
 '''
+
+PATTERN_DATE = r'[123456789][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'

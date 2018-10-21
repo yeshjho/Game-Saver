@@ -1,5 +1,4 @@
 Shenzhen IO|D://Game Saves/Shenzhen IO/2018-10-04 21-39/
-XCOM 2|D://Game Saves/XCOM 2/2018-10-04 21-39/
 Assassin's Creed Origins|D://Game Saves/Assassin's Creed Origins/2018-10-04 21-39/
 Astroneer|D://Game Saves/Astroneer/2018-10-04 21-39/
 Bastion|D://Game Saves/Bastion/2018-10-04 21-39/
@@ -30,6 +29,7 @@ Hand of Fate|D://Game Saves/Hand of Fate/2018-10-04 21-40/
 Hollow Knight|D://Game Saves/Hollow Knight/2018-10-04 21-40/
 Terraria|D://Game Saves/Terraria/2018-10-18 21-44/
 7 Billion Humans|D://Game Saves/7 Billion Humans/2018-10-18 21-59/
-XCOM|D://Game Saves/XCOM/2018-10-18 22-03/
-Life is Strange|D://Game Saves/Life is Strange/2018-10-18 22-17/
 Fallout New Vegas|D://Game Saves/Fallout New Vegas/2018-10-18 22-17/
+XCOM 2|D://Game Saves/XCOM 2/2018-10-21 15-31/
+Life is Strange|D://Game Saves/Life is Strange/2018-10-21 15-55/
+XCOM|D://Game Saves/XCOM/2018-10-21 15-55/
