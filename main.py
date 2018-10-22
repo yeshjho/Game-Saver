@@ -241,15 +241,15 @@ def delete_date(*dates: date or str):
                                      (map(lambda y: re.search(PATTERN_DATE, y).group(), file_dates))))
         file_date_dict = dict(zip(file_dates, file_date_objects))
         passed_paths = []
-        if isinstance(dates[0], date) and isinstance(dates[1], date):
+        if isinstance(dates[0], date) and isinstance(dates[1], date):  # date date
             for path in file_date_dict.keys():
                 if dates[0] <= file_date_dict[path] <= dates[1]:
                     passed_paths.append(path)
-        elif isinstance(dates[0], str):  # Ugly...
+        elif isinstance(dates[0], str):  # ~ date
             for path in file_date_dict.keys():
                 if file_date_dict[path] <= dates[1]:
                     passed_paths.append(path)
-        else:
+        else:  # date ~
             for path in file_date_dict.keys():
                 if dates[0] <= file_date_dict[path]:
                     passed_paths.append(path)
@@ -348,13 +348,13 @@ def delete_error(func, path: str, exc_info: tuple):
 
 def eval_command(**kwargs):
     if kwargs['command'] == 'help':  # help [command]
-        if len(kwargs['args']) == 0:
+        if len(kwargs['args']) == 0:  # help
             print_color(SYMBOL_MEANING_EXPLANATION, FORE_GRAY)
             for _command in COMMANDS:
                 print_color(COMMAND_SYNTAX[_command], FORE_LIME)
                 print_color(COMMAND_EXPLANATION_SIMPLE[_command], FORE_SILVER)
                 print()
-        else:
+        else:  # help command
             if kwargs['args'] == ['path']:
                 print_color('add, edit, show, del 중 한 가지 모드를 추가로 입력해 주세요.\n', FORE_YELLOW)
             else:
@@ -366,12 +366,12 @@ def eval_command(**kwargs):
                     print_color('존재하지 않는 명령어입니다.\n', FORE_YELLOW)
 
     elif kwargs['command'] == 'save':  # save [game_name+]
-        if len(kwargs['args']) == 0:
+        if len(kwargs['args']) == 0:  # save
             if os.path.isdir(save_root):
                 save_logic(srcs)
             else:
                 print_color("저장 경로가 올바르지 않습니다. (이미 존재하는 폴더여야 합니다.)\n", FORE_RED)
-        else:
+        else:  # save game_name+
             temp_dict = {}
             for name in kwargs['args']:
                 if name not in game_name_dict:
@@ -386,13 +386,13 @@ def eval_command(**kwargs):
                 with open('locations.txt', 'a', encoding='utf-8') as loc_file:
                     if len(kwargs['args']) == 1:
                         raise TooFewArgumentError
-                    elif len(kwargs['args']) == 2:
+                    elif len(kwargs['args']) == 2:  # path add game_name
                         file_obj = FileSelectDialog(False)
                         if file_obj.dialog.exec_():
                             loc_file.write('\n' + kwargs['args'][1] + '||' + file_obj.get_selected_path())
                         else:
                             return
-                    elif len(kwargs['args']) == 3:
+                    elif len(kwargs['args']) == 3:  # path add game_name isAFile
                         if kwargs['args'][2] == '0':
                             file_obj = FileSelectDialog(False)
                         elif kwargs['args'][2] == '1':
@@ -404,7 +404,7 @@ def eval_command(**kwargs):
                             loc_file.write('\n' + kwargs['args'][1] + '||' + file_obj.get_selected_path())
                         else:
                             return
-                    elif len(kwargs['args']) == 4:
+                    elif len(kwargs['args']) == 4:  # path add game_name isAFile nickname
                         if kwargs['args'][2] == '0':
                             file_obj = FileSelectDialog(False)
                         elif kwargs['args'][2] == '1':
@@ -435,13 +435,13 @@ def eval_command(**kwargs):
                             else re.search(pat, original).group()
                         target_strings = target_string.split("|")
                         alter_strings = target_strings.copy()
-                        if kwargs['args'][1] == 'dst':
+                        if kwargs['args'][1] == 'dst':  # path edit dst
                             file_obj = FileSelectDialog(False)
                             if file_obj.dialog.exec_():
                                 alter_strings[1] = file_obj.get_selected_path()
                             else:
                                 return
-                        else:
+                        else:  # path edit game_name
                             if kwargs['args'][1] not in game_name_dict:
                                 print_color(kwargs['args'][1] + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
                                 return
@@ -459,7 +459,7 @@ def eval_command(**kwargs):
 
                 elif len(kwargs['args']) == 3:
                     if kwargs['args'][1] == 'dst':
-                        if kwargs['args'][2] == "path":
+                        if kwargs['args'][2] == "path":  # path edit dst path
                             return eval_command(command='path', args=['edit', 'dst'])
                         else:
                             raise ArgumentTypeMismatchError('백업 경로는 경로 변경만 가능합니다.')
@@ -476,13 +476,13 @@ def eval_command(**kwargs):
                                 else re.search(pat, original).group()
                             target_strings = target_string.split("|")
                             alter_strings = target_strings.copy()
-                            if kwargs['args'][2] == 'name':
+                            if kwargs['args'][2] == 'name':  # path edit game_name name
                                 alter_strings[0] = input(game_name_dict[kwargs['args'][1]] + '의 새 이름을 입력하세요: ')
-                            elif kwargs['args'][2] == 'path':
+                            elif kwargs['args'][2] == 'path':  # path edit game_name path
                                 return eval_command(command='path', args=['edit', kwargs['args'][1]])
-                            elif kwargs['args'][2] == 'nickname':
+                            elif kwargs['args'][2] == 'nickname':  # path edit game_name nickname
                                 alter_strings[1] = input(game_name_dict[kwargs['args'][1]] + "의 새 별칭을 입력하세요: ")
-                            elif kwargs['args'][2] == 'toggle':
+                            elif kwargs['args'][2] == 'toggle':  # path edit game_name toggle
                                 alter_strings[0] = alter_strings[0][1:] if alter_strings[0].startswith("!") \
                                     else "!" + alter_strings[0]
                                 print(game_name_dict[kwargs['args'][1]] + "는 이제",
@@ -499,20 +499,20 @@ def eval_command(**kwargs):
                     raise TooManyArgumentsError
 
             elif kwargs['args'][0] == 'show':  # path show [game_name+|'dst']
-                if len(kwargs['args']) == 1:
+                if len(kwargs['args']) == 1:  # path show
                     print_color('{0:30}{1:15}{2}\n'.format("NAME", "NICKNAME", "LOCATION"), FORE_GREEN)
                     for name, nickname, src in src_list:
                         print(f'{name:30}{nickname:15}{src}')
                 elif len(kwargs['args']) == 2:
-                    if kwargs['args'][1] == 'dst':
+                    if kwargs['args'][1] == 'dst':  # path show dst
                         print(f'Save Location: {save_root}')
-                    else:
+                    else:  # path show game_name
                         name = kwargs['args'][1]
                         if name in game_name_dict:
                             print(f'{name}: {srcs[game_name_dict[name]]}')
                         else:
                             print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
-                else:
+                else:  # path show game_name+
                     print_color('{0:30}{1}\n'.format("GAME", "LOCATION"), FORE_GREEN)
                     for name in kwargs['args'][1:]:
                         if name in game_name_dict:
@@ -523,7 +523,7 @@ def eval_command(**kwargs):
             elif kwargs['args'][0] == 'del':  # path del <game_name+>
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
-                else:
+                else:  # path del game_name+
                     temp_list = []
                     for name in kwargs['args'][1:]:
                         if name in game_name_dict:
@@ -542,13 +542,13 @@ def eval_command(**kwargs):
             raise TooFewArgumentError('전체 삭제는 delall을 이용하세요.')
         elif len(kwargs['args']) == 1:
             date_search = re.search(PATTERN_DATE, kwargs['args'][0])
-            if date_search:
+            if date_search:  # del date
                 date_str = date_search.group()
                 try:
                     delete_date(date(int(date_str[:4]), int(date_str[5:7]), int(date_str[8:])))
                 except ValueError:
                     print_color("올바른 날짜를 입력해 주세요.", FORE_YELLOW)
-            else:
+            else:  # del game_name
                 if kwargs['args'][0] in game_name_dict:
                     delete(kwargs['args'])
                 else:
@@ -558,14 +558,14 @@ def eval_command(**kwargs):
             date_search2 = re.search(PATTERN_DATE, kwargs['args'][1])
             date1_str = date_search1.group() if date_search1 else None
             date2_str = date_search2.group() if date_search2 else None
-            if date_search1 and date_search2:
+            if date_search1 and date_search2:  # del date date
                 delete_date(date(int(date1_str[:4]), int(date1_str[5:7]), int(date1_str[8:])),
                             date(int(date2_str[:4]), int(date2_str[5:7]), int(date2_str[8:])))
             elif date_search1 and kwargs['args'][1] == "~":
                 delete_date(date(int(date1_str[:4]), int(date1_str[5:7]), int(date1_str[8:])), "~")
             elif kwargs['args'][0] == "~" and date_search2:
                 delete_date("~", date(int(date2_str[:4]), int(date2_str[5:7]), int(date2_str[8:])))
-            else:
+            else:  # del game_name game_name
                 temp_list = []
                 for name in kwargs['args']:
                     if name in game_name_dict:
@@ -573,7 +573,7 @@ def eval_command(**kwargs):
                     else:
                         print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
                 delete(temp_list)
-        else:
+        else:  # del game_name+
             temp_list = []
             for name in kwargs['args']:
                 if name in game_name_dict:
@@ -583,7 +583,7 @@ def eval_command(**kwargs):
             delete(temp_list)
 
     elif kwargs['command'] == 'delall':  # delall
-        if len(kwargs['args']) == 0:
+        if len(kwargs['args']) == 0:  # delall
             print_color("※이 명령어는 백업본을 모두 삭제합니다! Y를 입력하시면 진행합니다.", FORE_YELLOW)
             if input() == "Y":
                 try:
@@ -599,9 +599,9 @@ def eval_command(**kwargs):
             raise TooManyArgumentsError
 
     elif kwargs['command'] == 'option':  # option [showTF=0]
-        if len(kwargs['args']) == 0:
+        if len(kwargs['args']) == 0:  # option
             return edit_options()
-        elif len(kwargs['args']) == 1:
+        elif len(kwargs['args']) == 1:  # option showTF
             if kwargs['args'][0] == '0':
                 return edit_options()
             elif kwargs['args'][0] == '1':
@@ -612,7 +612,7 @@ def eval_command(**kwargs):
             raise TooManyArgumentsError
 
     elif kwargs['command'] == 'exit':  # exit
-        if len(kwargs['args']) == 0:
+        if len(kwargs['args']) == 0:  # exit
             sys.exit()
         else:
             raise TooManyArgumentsError
@@ -724,14 +724,14 @@ else:
             if answer == 0:  # exit
                 sys.exit()
                 
-            elif answer == 1:  # save
+            elif answer == 1:  # save [game_name+]
                 answer_1 = input(QUERY_1_SAVE)
                 if answer_1 == "1":  # save
                     eval_command(command='save', args=[])
-                elif answer_1 == '2':  # save [game_names+]
+                elif answer_1 == '2':  # save game_name+
                     eval_command(command='save', args=shlex.split(input(QUERY_GAME_NAME)))
                                     
-            elif answer == 2:  # path add
+            elif answer == 2:  # path add <game_name> [isAFile=0] [nickname]
                 answer_name = input("게임 이름을 입력하세요: ")
                 answer_2 = input(QUERY_2_PATH_ADD)
                 if answer_2 == '1':  # path add game_name
@@ -743,7 +743,7 @@ else:
                 elif answer_2 == '4':  # path add game_name 1 nickname
                     eval_command(command='path', args=['add', answer_name, '1', input("닉네임을 입력하세요: ")])
                 
-            elif answer == 3:  # path edit
+            elif answer == 3:  # path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
                 answer_name = input("게임 이름을 입력하세요: ")
                 answer_3 = input(QUERY_3_PATH_EDIT)
                 if answer_3 == '1':  # path edit game_name name
@@ -757,21 +757,21 @@ else:
                 elif answer_3 == '5':  # path edit dst
                     eval_command(command='path', args=['edit', 'dst'])
                 
-            elif answer == 4:  # path show
+            elif answer == 4:  # path show [game_name+|"dst"]
                 answer_4 = input(QUERY_4_PATH_SHOW)
                 if answer_4 == '1':  # path show
                     eval_command(command='path', args=['show'])
-                elif answer_4 == '2':  # path show [game_name+]
+                elif answer_4 == '2':  # path show game_name+
                     eval_command(command='path', args=shlex.split(input(QUERY_GAME_NAME)))
                 elif answer_4 == '3':  # path show dst
                     eval_command(command='path', args=['show', 'dst'])
                                 
-            elif answer == 5:  # path del
+            elif answer == 5:  # path del <game_name+>
                 eval_command(command='path', args=['del'] + shlex.split(input(QUERY_GAME_NAME)))
                 
-            elif answer == 6:  # del
+            elif answer == 6:  # del <game_name+|date [date]>
                 answer_6 = input(QUERY_6_DEL)
-                if answer_6 == '1':  # del [game_name+]
+                if answer_6 == '1':  # del game_name+
                     eval_command(command='del', args=shlex.split(input(QUERY_GAME_NAME)))
                 elif answer_6 == '2':  # del date
                     while True:
@@ -797,7 +797,7 @@ else:
             elif answer == 7:  # delall
                 eval_command(command='delall', args=[])
                 
-            elif answer == 8:  # option
+            elif answer == 8:  # option [showTF=0]
                 answer_8 = input(QUERY_8_OPTION)
                 if answer_8 == "1" or answer_8 == "2":  # option showTF
                     eval_command(command='option', args=[str(int(answer_8) - 1)])
