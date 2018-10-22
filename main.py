@@ -6,8 +6,8 @@ import sys
 import re
 import ctypes
 import shlex
-import stat
-import glob
+from stat import S_IWUSR
+from glob import glob
 from time import sleep
 from filecmp import dircmp, cmp
 from tempfile import TemporaryFile
@@ -101,14 +101,13 @@ class two_dict(dict):
 
 
 class FileSelectDialog(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self, is_a_file: bool):
         super().__init__()
-
         self.dialog = QFileDialog()
-        self.dialog.setFileMode(QFileDialog.Directory)
-        self.dialog.exec_()
+        if not is_a_file:
+            self.dialog.setFileMode(QFileDialog.Directory)
 
-    def get_selected_path(self):
+    def get_selected_path(self) -> str:
         return self.dialog.selectedFiles()[0]
 
 
@@ -121,7 +120,7 @@ def save_logic(game_dict: dict):
 
     for name, src in game_dict.items():
         if name.startswith('!'):
-            skipped_games.append(name[:1])
+            skipped_games.append(name[1:])
             print_color(name[1:] + "는 저장하지 않습니다. 해당 게임을 건너뜁니다...\n", FORE_GRAPEFRUIT)
             continue
 
@@ -164,7 +163,7 @@ def save_logic(game_dict: dict):
             if not save(name, src):
                 continue
 
-    print("\n모든 게임의 저장이 완료되었습니다.")
+    print_color("\n모든 게임의 저장이 완료되었습니다.", FORE_CYAN)
     if succeeded_games:
         report_result("\n새로 저장한 게임들:", succeeded_games, FORE_BLUE)
 
@@ -201,7 +200,7 @@ def save(_name: str, _src: str) -> bool:
     except NotADirectoryError:
         if not os.path.exists(save_dst):
             os.makedirs(save_dst)
-            os.chmod(save_dst, stat.S_IWUSR)
+            os.chmod(save_dst, S_IWUSR)
             shutil.copy(_src, save_dst)
             last_dsts[_name] = save_dst + _src.split('/')[-1]
         else:
@@ -225,34 +224,34 @@ def delete(game_names: list):
             print_color(name + "게임의 백업본이 존재하지 않습니다.", FORE_YELLOW)
             return
 
-        print(name + "의 백업본 삭제 완료했습니다.")
+        print_color(name + "의 백업본 삭제 완료했습니다.", FORE_PINK)
 
 
 def delete_date(*dates: date or str):
     if len(dates) == 1:
-        for path in glob.glob(save_root + '**/' + dates[0].isoformat() + "*/", recursive=True):
+        for path in glob(save_root + '**/' + dates[0].isoformat() + "*/", recursive=True):
             try:
                 shutil.rmtree(path, False, delete_error)
             except FileException:
                 return
         print(dates[0].isoformat() + "의 백업본을 모두 삭제했습니다.")
     else:
-        file_dates = glob.glob(save_root + '**/????-??-?? ??-??/', recursive=True)
+        file_dates = glob(save_root + '**/????-??-?? ??-??/', recursive=True)
         file_date_objects = list(map(lambda x: date(int(x[:4]), int(x[5:7]), int(x[8:])),
                                      (map(lambda y: re.search(PATTERN_DATE, y).group(), file_dates))))
         file_date_dict = dict(zip(file_dates, file_date_objects))
         passed_paths = []
         if isinstance(dates[0], date) and isinstance(dates[1], date):
             for path in file_date_dict.keys():
-                if dates[0] < file_date_dict[path] < dates[1]:
+                if dates[0] <= file_date_dict[path] <= dates[1]:
                     passed_paths.append(path)
         elif isinstance(dates[0], str):  # Ugly...
             for path in file_date_dict.keys():
-                if file_date_dict[path] < dates[1]:
+                if file_date_dict[path] <= dates[1]:
                     passed_paths.append(path)
         else:
             for path in file_date_dict.keys():
-                if dates[0] < file_date_dict[path]:
+                if dates[0] <= file_date_dict[path]:
                     passed_paths.append(path)
 
         for path in passed_paths:
@@ -260,21 +259,21 @@ def delete_date(*dates: date or str):
                 shutil.rmtree(path, False, delete_error)
             except FileException:
                 pass
-        print("기간 내 모든 백업본을 삭제했습니다.")
+        print_color("기간 내 모든 백업본을 삭제했습니다.", FORE_PINK)
 
 
 def delete_path(names: list):
-    for name in names:
-        with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
+    with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
+        for name in names:
+            loc_file.seek(0)
             original = loc_file.read()
-            pat = r'[ \t!]*' + game_name_dict[name] + r'.+\n'
-            target_string = re.search(pat, original).group()
-            changed_text = original.replace(target_string, '')
+            target_string = re.search(r'(\A|\n)[ \t!]*' + game_name_dict[name] + r'.+(\Z|\n)', original).group()
+            changed_text = original.replace(target_string[1:] if target_string.startswith('\n') else target_string, '')
             loc_file.seek(0)
             loc_file.write(changed_text)
             loc_file.truncate()
             print_color(name + "의 경로 삭제 완료했습니다.", FORE_BLUE)
-            return read_loc_file()
+    return read_loc_file()
 
 
 def report_result(message: str, game_list: list, color=FORE_WHITE):
@@ -323,7 +322,7 @@ def edit_options(show_tf=False):
         _option_file.seek(0)
         _option_file.write(original.replace(target_string, alter_text))
         _option_file.truncate()
-    print("성공적으로 변경되었습니다.\n")
+    print_color("성공적으로 변경되었습니다.\n", FORE_CYAN)
     return read_option_file()
 
 
@@ -339,7 +338,7 @@ def print_color(_msg: str, color: int, handle=ctypes.windll.kernel32.GetStdHandl
 
 def delete_error(func, path: str, exc_info: tuple):
     if not os.access(path, os.W_OK):
-        os.chmod(path, stat.S_IWUSR)
+        os.chmod(path, S_IWUSR)
         func(path)
     else:
         print_color("파일을 지우는 도중 에러가 발생했습니다.", FORE_RED)
@@ -388,43 +387,99 @@ def eval_command(**kwargs):
                     if len(kwargs['args']) == 1:
                         raise TooFewArgumentError
                     elif len(kwargs['args']) == 2:
-                        pass  # TODO: 게임 이름만 주어짐
+                        file_obj = FileSelectDialog(False)
+                        if file_obj.dialog.exec_():
+                            loc_file.write('\n' + kwargs['args'][1] + '||' + file_obj.get_selected_path())
+                        else:
+                            return
                     elif len(kwargs['args']) == 3:
-                        pass  # TODO: 파일인지의 여부까지 주어짐
+                        if kwargs['args'][2] == '0':
+                            file_obj = FileSelectDialog(False)
+                        elif kwargs['args'][2] == '1':
+                            file_obj = FileSelectDialog(True)
+                        else:
+                            raise ArgumentTypeMismatchError("0과 1 중 하나를 입력해 주세요.")
+
+                        if file_obj.dialog.exec_():
+                            loc_file.write('\n' + kwargs['args'][1] + '||' + file_obj.get_selected_path())
+                        else:
+                            return
                     elif len(kwargs['args']) == 4:
-                        pass  # TODO: 닉네임까지 주어짐
+                        if kwargs['args'][2] == '0':
+                            file_obj = FileSelectDialog(False)
+                        elif kwargs['args'][2] == '1':
+                            file_obj = FileSelectDialog(True)
+                        else:
+                            raise ArgumentTypeMismatchError("0과 1 중 하나를 입력해 주세요.")
+
+                        if file_obj.dialog.exec_():
+                            loc_file.write('\n' + kwargs['args'][1] + '|' +
+                                           kwargs['args'][3] + '|' + file_obj.get_selected_path())
+                        else:
+                            return
                     else:
                         raise TooManyArgumentsError
+                print_color(kwargs['args'][1] + ' 추가되었습니다.', FORE_CYAN)
                 return read_loc_file()
 
             elif kwargs['args'][0] == 'edit':  # path edit <game_name|'dst'> ['name'|{'path'}|'nickname'|'toggle']
                 if len(kwargs['args']) == 1:
                     raise TooFewArgumentError
                 elif len(kwargs['args']) == 2:
-                    if kwargs['args'][1] == 'dst':
-                        pass  # TODO: dst가 주어짐
-                    else:
-                        pass  # TODO: 게임 이름이 주어짐
+                    with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
+                        original = loc_file.read()
+                        pat = r'(\A|\n)[ \t!]*SaveLocation[^\n\r]+' if kwargs['args'][1] == 'dst' else \
+                              r'(\A|\n)[ \t!]*' + game_name_dict[kwargs['args'][1]] + r'[^\n\r]+'
+                        target_string = re.search(pat, original).group()[1:] \
+                            if re.search(pat, original).group().startswith('\n') \
+                            else re.search(pat, original).group()
+                        target_strings = target_string.split("|")
+                        alter_strings = target_strings.copy()
+                        if kwargs['args'][1] == 'dst':
+                            file_obj = FileSelectDialog(False)
+                            if file_obj.dialog.exec_():
+                                alter_strings[1] = file_obj.get_selected_path()
+                            else:
+                                return
+                        else:
+                            if kwargs['args'][1] not in game_name_dict:
+                                print_color(kwargs['args'][1] + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
+                                return
+                            file_obj = FileSelectDialog(False if os.path.isdir(srcs[game_name_dict[kwargs['args'][1]]])
+                                                        else True)
+                            if file_obj.dialog.exec_():
+                                alter_strings[2] = file_obj.get_selected_path()
+                            else:
+                                return
+                        loc_file.seek(0)
+                        loc_file.write(original.replace("|".join(target_strings), "|".join(alter_strings)))
+                        loc_file.truncate()
+                    print_color('변경이 완료되었습니다.', FORE_CYAN)
+                    return read_loc_file()
+
                 elif len(kwargs['args']) == 3:
                     if kwargs['args'][1] == 'dst':
                         if kwargs['args'][2] == "path":
-                            pass  # dst가 주어짐과 동일
+                            return eval_command(command='path', args=['edit', 'dst'])
                         else:
                             raise ArgumentTypeMismatchError('백업 경로는 경로 변경만 가능합니다.')
                     else:
-                        if not game_name_dict[kwargs['args'][1]]:
+                        if kwargs['args'][1] not in game_name_dict:
                             print_color(kwargs['args'][1] + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
                             return
 
                         with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
                             original = loc_file.read()
-                            pat = r'[ \t!]*' + game_name_dict[kwargs['args'][1]] + r'[^\n\r]+'
-                            target_strings = re.search(pat, original).group().split("|")
+                            pat = r'(\A|\n)[ \t!]*' + game_name_dict[kwargs['args'][1]] + r'[^\n\r]+'
+                            target_string = re.search(pat, original).group()[1:] \
+                                if re.search(pat, original).group().startswith('\n') \
+                                else re.search(pat, original).group()
+                            target_strings = target_string.split("|")
                             alter_strings = target_strings.copy()
                             if kwargs['args'][2] == 'name':
                                 alter_strings[0] = input(game_name_dict[kwargs['args'][1]] + '의 새 이름을 입력하세요: ')
                             elif kwargs['args'][2] == 'path':
-                                pass  # 게임 이름이 주어짐과 동일
+                                return eval_command(command='path', args=['edit', kwargs['args'][1]])
                             elif kwargs['args'][2] == 'nickname':
                                 alter_strings[1] = input(game_name_dict[kwargs['args'][1]] + "의 새 별칭을 입력하세요: ")
                             elif kwargs['args'][2] == 'toggle':
@@ -434,11 +489,10 @@ def eval_command(**kwargs):
                                       "저장되지 않습니다." if alter_strings[0].startswith('!') else "저장됩니다.")
                             else:
                                 raise ArgumentTypeMismatchError('name, path, nickname, toggle 중 하나를 입력해 주세요.')
-                            original.replace("|".join(target_strings), "|".join(alter_strings))
                             loc_file.seek(0)
-                            loc_file.write(original)
+                            loc_file.write(original.replace("|".join(target_strings), "|".join(alter_strings)))
                             loc_file.truncate()
-                        print("변경이 완료되었습니다.")
+                        print_color("변경이 완료되었습니다.", FORE_CYAN)
                         return read_loc_file()
 
                 else:
@@ -536,10 +590,10 @@ def eval_command(**kwargs):
                     shutil.rmtree(save_root, False, delete_error)
                 except FileException:
                     pass
-                print("모든 백업본의 삭제가 완료되었습니다.")
+                print_color("모든 백업본의 삭제가 완료되었습니다.", FORE_PINK)
                 if not os.path.isdir(save_root):
                     os.makedirs(save_root)
-                    os.chmod(save_root, stat.S_IWUSR)
+                    os.chmod(save_root, S_IWUSR)
 
         else:
             raise TooManyArgumentsError
@@ -575,7 +629,7 @@ def read_loc_file():
         _srcs = two_dict(_src_list)
         _src_list = list(map(lambda x: (x[0].strip(), x[1].strip(), x[2].strip()),
                              list(filter(lambda x: len(x) != 2, _src_list))))
-    return srcs, src_list
+    return _srcs, _src_list
 
 
 def read_last_file():
@@ -601,6 +655,8 @@ options = read_option_file()
 
 save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs['SaveLocation'] + '/'
 del srcs['SaveLocation']
+
+app = QtWidgets.QApplication(sys.argv)
 
 set_cmd_color(FORE_WHITE)
 print_color('제작자: yeshjho\n', FORE_CYAN)
@@ -670,24 +726,44 @@ else:
                 
             elif answer == 1:  # save
                 answer_1 = input(QUERY_1_SAVE)
-                if answer_1 == "1":
+                if answer_1 == "1":  # save
                     eval_command(command='save', args=[])
-                elif answer_1 == '2':
+                elif answer_1 == '2':  # save [game_names+]
                     eval_command(command='save', args=shlex.split(input(QUERY_GAME_NAME)))
                                     
             elif answer == 2:  # path add
+                answer_name = input("게임 이름을 입력하세요: ")
                 answer_2 = input(QUERY_2_PATH_ADD)
+                if answer_2 == '1':  # path add game_name
+                    eval_command(command='path', args=['add', answer_name])
+                elif answer_2 == '2':  # path add game_name 0 nickname
+                    eval_command(command='path', args=['add', answer_name, '0', input("닉네임을 입력하세요: ")])
+                elif answer_2 == '3':  # path add game_name 1
+                    eval_command(command='path', args=['add', answer_name, '1'])
+                elif answer_2 == '4':  # path add game_name 1 nickname
+                    eval_command(command='path', args=['add', answer_name, '1', input("닉네임을 입력하세요: ")])
                 
             elif answer == 3:  # path edit
+                answer_name = input("게임 이름을 입력하세요: ")
                 answer_3 = input(QUERY_3_PATH_EDIT)
+                if answer_3 == '1':  # path edit game_name name
+                    eval_command(command='path', args=['edit', answer_name, 'name'])
+                elif answer_3 == '2':  # path edit game_name
+                    eval_command(command='path', args=['edit', answer_name])
+                elif answer_3 == '3':  # path edit game_name nickname
+                    eval_command(command='path', args=['edit', answer_name, 'nickname'])
+                elif answer_3 == '4':  # path edit game_name toggle
+                    eval_command(command='path', args=['edit', answer_name, 'toggle'])
+                elif answer_3 == '5':  # path edit dst
+                    eval_command(command='path', args=['edit', 'dst'])
                 
             elif answer == 4:  # path show
                 answer_4 = input(QUERY_4_PATH_SHOW)
-                if answer_4 == '1':
+                if answer_4 == '1':  # path show
                     eval_command(command='path', args=['show'])
-                elif answer_4 == '2':
+                elif answer_4 == '2':  # path show [game_name+]
                     eval_command(command='path', args=shlex.split(input(QUERY_GAME_NAME)))
-                elif answer_4 == '3':
+                elif answer_4 == '3':  # path show dst
                     eval_command(command='path', args=['show', 'dst'])
                                 
             elif answer == 5:  # path del
@@ -695,27 +771,35 @@ else:
                 
             elif answer == 6:  # del
                 answer_6 = input(QUERY_6_DEL)
-                if answer_6 == '1':
+                if answer_6 == '1':  # del [game_name+]
                     eval_command(command='del', args=shlex.split(input(QUERY_GAME_NAME)))
-                elif answer_6 == '2':
+                elif answer_6 == '2':  # del date
                     while True:
                         answer_6_2 = re.search(r'^' + PATTERN_DATE + r'$', input("YYYY-MM-DD의 형식으로 입력해 주세요: "))
                         if answer_6_2:
-                            eval_command(command='del', args=[answer_6_2])
+                            eval_command(command='del', args=[answer_6_2.group()])
+                            break
                         else:
                             print_color("올바른 날짜를 입력해 주세요.", FORE_GRAPEFRUIT)
-                elif answer_6 == '3':
+                elif answer_6 == '3':  # del date date
                     while True:
                         answer_6_3 = input("YYYY-MM-DD YYYY-MM-DD의 형식으로 입력해 주세요.\n"
                                            "~까지, ~부터를 나타내기 위해 각각 전자와 후자를 ~로 대체할 수 있습니다: ")
-                        # 세 번 매치 후 eval
+                        match_to = re.search(r'^~ ' + PATTERN_DATE + r'$', answer_6_3)
+                        match_period = re.search(r'^' + PATTERN_DATE + ' ' + PATTERN_DATE + r'$', answer_6_3)
+                        match_from = re.search(r'^' + PATTERN_DATE + r' ~$', answer_6_3)
+                        if match_to or match_period or match_from:
+                            eval_command(command='del', args=answer_6_3.split())
+                            break
+                        else:
+                            print_color("올바른 기간을 입력해 주세요.", FORE_GRAPEFRUIT)
                                 
             elif answer == 7:  # delall
                 eval_command(command='delall', args=[])
                 
             elif answer == 8:  # option
                 answer_8 = input(QUERY_8_OPTION)
-                if answer_8 == "1" or answer_8 == "2":
+                if answer_8 == "1" or answer_8 == "2":  # option showTF
                     eval_command(command='option', args=[str(int(answer_8) - 1)])
                                     
             else:
