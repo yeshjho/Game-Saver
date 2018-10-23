@@ -41,7 +41,7 @@ class FileException(Exception):
     pass
 
 
-class dircmp2(dircmp):
+class DirCmp2(dircmp):
     def __init__(self, a, b, f, ignore=None, hide=None):
         super().__init__(a, b, ignore, hide)
         self.result = []
@@ -53,7 +53,7 @@ class dircmp2(dircmp):
         for x in self.common_dirs:
             a_x = os.path.join(self.left, x)
             b_x = os.path.join(self.right, x)
-            self.subdirs[x] = dircmp2(a_x, b_x, self.file, self.ignore, self.hide)
+            self.subdirs[x] = DirCmp2(a_x, b_x, self.file, self.ignore, self.hide)
 
     def report(self):
         if self.left_only or self.right_only or self.diff_files or self.funny_files:
@@ -65,7 +65,7 @@ class dircmp2(dircmp):
             sd.report_full_closure()
 
 
-class two_dict(dict):
+class TwoDict(dict):
     def __init__(self, iterable):
         super().__init__()
         game_name_dict.clear()
@@ -130,7 +130,7 @@ def save_logic(game_dict: dict):
             if os.path.isdir(src):
                 with TemporaryFile('w+', encoding='utf-8') as temp_file:
                     try:
-                        comp_obj = dircmp2(last_dsts[name], src, temp_file)
+                        comp_obj = DirCmp2(last_dsts[name], src, temp_file)
                         comp_obj.report_full_closure()
                         temp_file.seek(0)
                         is_identical = False if temp_file.read() else True
@@ -229,12 +229,17 @@ def delete(game_names: list):
 
 def delete_date(*dates: date or str):
     if len(dates) == 1:
-        for path in glob(save_root + '**/' + dates[0].isoformat() + "*/", recursive=True):
+        passed_paths = glob(save_root + '**/' + dates[0].isoformat() + "*/", recursive=True)
+
+        if not passed_paths:
+            print_color("해당 날짜의 백업본이 존재하지 않습니다.", FORE_MAGENTA)
+            return
+        for path in passed_paths:
             try:
                 shutil.rmtree(path, False, delete_error)
             except FileException:
                 return
-        print(dates[0].isoformat() + "의 백업본을 모두 삭제했습니다.")
+        print_color(dates[0].isoformat() + "의 백업본을 모두 삭제했습니다.", FORE_PINK)
     else:
         file_dates = glob(save_root + '**/????-??-?? ??-??/', recursive=True)
         file_date_objects = list(map(lambda x: date(int(x[:4]), int(x[5:7]), int(x[8:])),
@@ -254,12 +259,15 @@ def delete_date(*dates: date or str):
                 if dates[0] <= file_date_dict[path]:
                     passed_paths.append(path)
 
+        if not passed_paths:
+            print_color("해당 기간 내 백업본이 존재하지 않습니다.", FORE_MAGENTA)
+            return
         for path in passed_paths:
             try:
                 shutil.rmtree(path, False, delete_error)
             except FileException:
                 pass
-        print_color("기간 내 모든 백업본을 삭제했습니다.", FORE_PINK)
+        print_color("해당 기간 내 모든 백업본을 삭제했습니다.", FORE_PINK)
 
 
 def delete_path(names: list):
@@ -336,6 +344,13 @@ def print_color(_msg: str, color: int, handle=ctypes.windll.kernel32.GetStdHandl
     set_cmd_color(FORE_WHITE, handle)
 
 
+def input_color(_msg: str, color: int, handle=ctypes.windll.kernel32.GetStdHandle(-11)):
+    set_cmd_color(color, handle)
+    print(_msg, end='')
+    set_cmd_color(FORE_WHITE, handle)
+    return input()
+
+
 def delete_error(func, path: str, exc_info: tuple):
     if not os.access(path, os.W_OK):
         os.chmod(path, S_IWUSR)
@@ -375,7 +390,7 @@ def eval_command(**kwargs):
             temp_dict = {}
             for name in kwargs['args']:
                 if name not in game_name_dict:
-                    print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다. 해당 게임을 건너뜁니다...\n", FORE_YELLOW)
+                    print_color(name + GAME_NONEXISTENT + "해당 게임을 건너뜁니다...\n", FORE_YELLOW)
                 else:
                     temp_dict[game_name_dict[name]] = srcs[game_name_dict[name]]
             save_logic(temp_dict)
@@ -431,8 +446,7 @@ def eval_command(**kwargs):
                         pat = r'(\A|\n)[ \t!]*SaveLocation[^\n\r]+' if kwargs['args'][1] == 'dst' else \
                               r'(\A|\n)[ \t!]*' + game_name_dict[kwargs['args'][1]] + r'[^\n\r]+'
                         target_string = re.search(pat, original).group()[1:] \
-                            if re.search(pat, original).group().startswith('\n') \
-                            else re.search(pat, original).group()
+                            if re.search(pat, original).group().startswith('\n') else re.search(pat, original).group()
                         target_strings = target_string.split("|")
                         alter_strings = target_strings.copy()
                         if kwargs['args'][1] == 'dst':  # path edit dst
@@ -443,7 +457,7 @@ def eval_command(**kwargs):
                                 return
                         else:  # path edit game_name
                             if kwargs['args'][1] not in game_name_dict:
-                                print_color(kwargs['args'][1] + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
+                                print_color(kwargs['args'][1] + GAME_NONEXISTENT, FORE_YELLOW)
                                 return
                             file_obj = FileSelectDialog(False if os.path.isdir(srcs[game_name_dict[kwargs['args'][1]]])
                                                         else True)
@@ -465,7 +479,7 @@ def eval_command(**kwargs):
                             raise ArgumentTypeMismatchError('백업 경로는 경로 변경만 가능합니다.')
                     else:
                         if kwargs['args'][1] not in game_name_dict:
-                            print_color(kwargs['args'][1] + '이란 이름 혹은 닉네임을 가진 게임이 없습니다.', FORE_YELLOW)
+                            print_color(kwargs['args'][1] + GAME_NONEXISTENT, FORE_YELLOW)
                             return
 
                         with open('locations.txt', 'r+', encoding='utf-8') as loc_file:
@@ -511,14 +525,14 @@ def eval_command(**kwargs):
                         if name in game_name_dict:
                             print(f'{name}: {srcs[game_name_dict[name]]}')
                         else:
-                            print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                            print_color(name + GAME_NONEXISTENT, FORE_YELLOW)
                 else:  # path show game_name+
                     print_color('{0:30}{1}\n'.format("GAME", "LOCATION"), FORE_GREEN)
                     for name in kwargs['args'][1:]:
                         if name in game_name_dict:
                             print(f'{name:30}{srcs[game_name_dict[name]]}')
                         else:
-                            print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                            print_color(name + GAME_NONEXISTENT, FORE_YELLOW)
 
             elif kwargs['args'][0] == 'del':  # path del <game_name+>
                 if len(kwargs['args']) == 1:
@@ -552,7 +566,7 @@ def eval_command(**kwargs):
                 if kwargs['args'][0] in game_name_dict:
                     delete(kwargs['args'])
                 else:
-                    print_color(kwargs['args'][0] + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                    print_color(kwargs['args'][0] + GAME_NONEXISTENT, FORE_YELLOW)
         elif len(kwargs['args']) == 2:
             date_search1 = re.search(PATTERN_DATE, kwargs['args'][0])
             date_search2 = re.search(PATTERN_DATE, kwargs['args'][1])
@@ -571,7 +585,7 @@ def eval_command(**kwargs):
                     if name in game_name_dict:
                         temp_list.append(name)
                     else:
-                        print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                        print_color(name + GAME_NONEXISTENT, FORE_YELLOW)
                 delete(temp_list)
         else:  # del game_name+
             temp_list = []
@@ -579,7 +593,7 @@ def eval_command(**kwargs):
                 if name in game_name_dict:
                     temp_list.append(name)
                 else:
-                    print_color(name + "이란 이름 혹은 닉네임을 가진 게임이 없습니다.", FORE_YELLOW)
+                    print_color(name + GAME_NONEXISTENT, FORE_YELLOW)
             delete(temp_list)
 
     elif kwargs['command'] == 'delall':  # delall
@@ -626,7 +640,7 @@ def read_loc_file():
         _src_list = list(filter(lambda x: len(x) != 1,
                                 map(lambda x: x.strip().replace('\\', '/').split("|") if x[0] != "#" else '_',
                                     gm_loc_file.readlines())))
-        _srcs = two_dict(_src_list)
+        _srcs = TwoDict(_src_list)
         _src_list = list(map(lambda x: (x[0].strip(), x[1].strip(), x[2].strip()),
                              list(filter(lambda x: len(x) != 2, _src_list))))
     return _srcs, _src_list
@@ -718,34 +732,42 @@ if eval(options['USE_COMMAND']):
 
 else:
     while True:
-        answer = input(QUERY_MAIN)
+        answer = input_color(QUERY_MAIN, FORE_LIME)
         if answer.isnumeric():
             answer = int(answer)
             if answer == 0:  # exit
                 sys.exit()
                 
             elif answer == 1:  # save [game_name+]
-                answer_1 = input(QUERY_1_SAVE)
+                answer_1 = input_color(QUERY_1_SAVE, FORE_IVORY)
                 if answer_1 == "1":  # save
                     eval_command(command='save', args=[])
                 elif answer_1 == '2':  # save game_name+
-                    eval_command(command='save', args=shlex.split(input(QUERY_GAME_NAME)))
+                    eval_command(command='save', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                                     
             elif answer == 2:  # path add <game_name> [isAFile=0] [nickname]
-                answer_name = input("게임 이름을 입력하세요: ")
-                answer_2 = input(QUERY_2_PATH_ADD)
+                answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
+                if answer_name not in game_name_dict:
+                    print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
+                    continue
+                answer_2 = input_color(QUERY_2_PATH_ADD, FORE_IVORY)
                 if answer_2 == '1':  # path add game_name
                     eval_command(command='path', args=['add', answer_name])
                 elif answer_2 == '2':  # path add game_name 0 nickname
-                    eval_command(command='path', args=['add', answer_name, '0', input("닉네임을 입력하세요: ")])
+                    eval_command(command='path', args=['add', answer_name, '0',
+                                                       input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
                 elif answer_2 == '3':  # path add game_name 1
                     eval_command(command='path', args=['add', answer_name, '1'])
                 elif answer_2 == '4':  # path add game_name 1 nickname
-                    eval_command(command='path', args=['add', answer_name, '1', input("닉네임을 입력하세요: ")])
+                    eval_command(command='path', args=['add', answer_name, '1',
+                                                       input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
                 
             elif answer == 3:  # path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
-                answer_name = input("게임 이름을 입력하세요: ")
-                answer_3 = input(QUERY_3_PATH_EDIT)
+                answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
+                if answer_name not in game_name_dict:
+                    print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
+                    continue
+                answer_3 = input_color(QUERY_3_PATH_EDIT, FORE_IVORY)
                 if answer_3 == '1':  # path edit game_name name
                     eval_command(command='path', args=['edit', answer_name, 'name'])
                 elif answer_3 == '2':  # path edit game_name
@@ -758,21 +780,21 @@ else:
                     eval_command(command='path', args=['edit', 'dst'])
                 
             elif answer == 4:  # path show [game_name+|"dst"]
-                answer_4 = input(QUERY_4_PATH_SHOW)
+                answer_4 = input_color(QUERY_4_PATH_SHOW, FORE_IVORY)
                 if answer_4 == '1':  # path show
                     eval_command(command='path', args=['show'])
                 elif answer_4 == '2':  # path show game_name+
-                    eval_command(command='path', args=shlex.split(input(QUERY_GAME_NAME)))
+                    eval_command(command='path', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                 elif answer_4 == '3':  # path show dst
                     eval_command(command='path', args=['show', 'dst'])
                                 
             elif answer == 5:  # path del <game_name+>
-                eval_command(command='path', args=['del'] + shlex.split(input(QUERY_GAME_NAME)))
+                eval_command(command='path', args=['del'] + shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                 
             elif answer == 6:  # del <game_name+|date [date]>
-                answer_6 = input(QUERY_6_DEL)
+                answer_6 = input_color(QUERY_6_DEL, FORE_IVORY)
                 if answer_6 == '1':  # del game_name+
-                    eval_command(command='del', args=shlex.split(input(QUERY_GAME_NAME)))
+                    eval_command(command='del', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                 elif answer_6 == '2':  # del date
                     while True:
                         answer_6_2 = re.search(r'^' + PATTERN_DATE + r'$', input("YYYY-MM-DD의 형식으로 입력해 주세요: "))
@@ -798,7 +820,7 @@ else:
                 eval_command(command='delall', args=[])
                 
             elif answer == 8:  # option [showTF=0]
-                answer_8 = input(QUERY_8_OPTION)
+                answer_8 = input_color(QUERY_8_OPTION, FORE_IVORY)
                 if answer_8 == "1" or answer_8 == "2":  # option showTF
                     eval_command(command='option', args=[str(int(answer_8) - 1)])
                                     
