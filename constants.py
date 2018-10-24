@@ -41,7 +41,7 @@ COMMAND_SYNTAX = {'help': 'help [command]',
                   'path edit': 'path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]',
                   'path show': 'path show [game_name+|"dst"]',
                   'path del': 'path del <game_name+>',
-                  'get': 'get <"steam"> [getOnline=0]',
+                  'get': 'get <"steam">',
                   'del': 'del <game_name+|date [date]>',
                   'delall': 'delall',
                   'option': 'option [showTF=0]',
@@ -179,6 +179,7 @@ QUERY_GAME_NAMES = '게임 이름 또는 별칭을 입력하세요. 공백으로
 GAME_NONEXISTENT = "이란 이름 혹은 별칭을 가진 게임이 없습니다."
 
 QUERY_STEAM_ID = """
+자동으로 스팀 ID를 감지하는 데 실패했습니다.
 다음 중 하나를 입력해 주세요.
 1. 스팀 프로필 주소 전체
 2. 사용자 지정 URL에서 설정한 ID

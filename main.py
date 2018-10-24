@@ -6,6 +6,7 @@ import sys
 import re
 import ctypes
 import shlex
+import winreg
 import requests
 from stat import S_IWUSR
 from glob import glob
@@ -112,8 +113,68 @@ class FileSelectDialog(QtWidgets.QWidget):
         return self.dialog.selectedFiles()[0]
 
 
-def get_steam_games():  # TODO: 오리진 폴더 구성 보고 get local games로 바꿔서 blablabla
-    pass
+class SteamGameListGetter:
+    def __init__(self):
+        if not self.get_steam_id():
+            self.steam_id = input_color(QUERY_STEAM_ID, FORE_CYAN)
+
+        self.headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) '
+                                      'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        self.connection = None
+        self.start_tag = 'var rgGames = '
+        self.end_tag = ';\r\n\t\tvar rgChangingGames'
+
+        if self.steam_id.startswith('http'):
+            self.url = self.steam_id + '/games/?tab=all'
+        elif self.steam_id.isnumeric():
+            self.url = 'http://steamcommunity.com/profiles/' + self.steam_id + '/games/?tab=all'
+        else:
+            self.url = 'http://steamcommunity.com/id/' + self.steam_id + '/games/?tab=all'
+
+    def get_steam_id(self) -> bool:
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\\Valve\\Steam")
+            steam_path = winreg.QueryValueEx(key, 'SteamPath')[0]
+        except OSError:
+            return False
+        try_path = steam_path + '/config/loginusers.vdf'
+        try:
+            with open(try_path, encoding='utf-8') as user_file:
+                steam_id = eval(user_file.readlines()[2].strip())
+                self.steam_id = steam_id
+                return True
+        except OSError or IndexError:
+            return False
+
+    def try_connect(self) -> bool:
+        try:
+            self.connection = requests.get(self.url, self.headers)
+            self.connection.raise_for_status()
+            return True
+        except requests.exceptions.RequestException:
+            print_color('스팀 서버로부터 응답을 받지 못했습니다.', FORE_RED)
+            return False
+
+    def get_games(self) -> bool or list:
+        if not self.try_connect():
+            return False
+
+        content = str(self.connection.content, encoding='utf-8')
+        if '<title>Steam Community :: Error</title>' in content:
+            print_color('해당 아이디가 존재하지 않습니다.', FORE_RED)
+            return False
+        if '<div class="profile_private_info">' in content:
+            print_color('해당 아이디의 프로필이 비공개여서 불러올 수 없습니다.', FORE_RED)
+            return False
+
+        index_start = content.find(self.start_tag) + len(self.start_tag)
+        index_end = content.find(self.end_tag)
+        try:
+            game_list = eval(content[index_start:index_end].replace('true', 'True').replace('false', 'False'))
+            return list(map(lambda x: (x['appid'], x['name']), game_list))
+        except NameError or TypeError:
+            print_color('페이지로부터 게임 목록을 불러오는 데 실패했습니다.', FORE_RED)
+            return False
 
 
 def save_logic(game_dict: dict):
@@ -287,6 +348,13 @@ def delete_path(names: list):
             loc_file.truncate()
             print_color(name + "의 경로 삭제 완료했습니다.", FORE_BLUE)
     return read_loc_file()
+
+
+def get_save_loc(names: list):  # TODO: steamdb에서 검색해서 App Type 찾은 후 DLC가 아니면 PC Gaming Wiki에서 찾기(TM제거)
+    try:
+        connection = None
+    except:
+        pass
 
 
 def report_result(message: str, game_list: list, color=FORE_WHITE):
@@ -561,7 +629,13 @@ def eval_command(**kwargs):
             raise TooFewArgumentError
         elif len(kwargs['args']) == 1:
             if kwargs['args'][0] == 'steam':
-                pass
+                steam = SteamGameListGetter()
+                if not steam.try_connect():
+                    return
+                else:
+                    steam_games = steam.get_games()
+            else:
+                raise ArgumentTypeMismatchError
         else:
             raise TooManyArgumentsError
 
@@ -677,173 +751,174 @@ def read_option_file():
     return _options
 
 
-srcs, src_list = read_loc_file()
-last_dsts = read_last_file()
-options = read_option_file()
+if __name__ == "__main__":
+    srcs, src_list = read_loc_file()
+    last_dsts = read_last_file()
+    options = read_option_file()
 
-save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs['SaveLocation'] + '/'
-del srcs['SaveLocation']
+    save_root = srcs['SaveLocation'] if srcs['SaveLocation'].endswith('/') else srcs['SaveLocation'] + '/'
+    del srcs['SaveLocation']
 
-app = QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
-set_cmd_color(FORE_WHITE)
-print_color('제작자: yeshjho\n', FORE_CYAN)
+    set_cmd_color(FORE_WHITE)
+    print_color('제작자: yeshjho\n', FORE_CYAN)
 
-if options['USE_COMMAND'] == '-1':
-    answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
-    while answer != 'y' and answer != 'n' and answer != '':
-        answer = input("y/n 중 하나를 입력해 주세요: ")
-    options['USE_COMMAND'] = '1' if answer == 'y' or answer == '' else '0'
-    with open('options.txt', 'r+', encoding='utf-8') as option_file:
-        contain = option_file.read().replace('-1', options['USE_COMMAND'])
-        option_file.seek(0)
-        option_file.write(contain)
-        option_file.truncate()
+    if options['USE_COMMAND'] == '-1':
+        answer = input("명령어로 프로그램을 조작하시겠습니까? 이 옵션은 나중에 변경할 수 있습니다. ([y]/n): ").lower()
+        while answer != 'y' and answer != 'n' and answer != '':
+            answer = input("y/n 중 하나를 입력해 주세요: ")
+        options['USE_COMMAND'] = '1' if answer == 'y' or answer == '' else '0'
+        with open('options.txt', 'r+', encoding='utf-8') as option_file:
+            contain = option_file.read().replace('-1', options['USE_COMMAND'])
+            option_file.seek(0)
+            option_file.write(contain)
+            option_file.truncate()
 
-if eval(options['USE_COMMAND']):
-    print('도움말을 보려면 help를 치세요.\n')
-    while True:
-        command = shlex.split(input(">>"))
-        if command:
-            try:
-                result = eval_command(command=command[0], args=command[1:])
-                if len(result) == 2:
-                    srcs, src_list = result
-                else:
-                    options = result
-            except TooManyArgumentsError as msg:
-                print_color('인수가 너무 많습니다.', FORE_RED)
-                if str(msg):
-                    print_color(str(msg), FORE_RED)
+    if eval(options['USE_COMMAND']):
+        print('도움말을 보려면 help를 치세요.\n')
+        while True:
+            command = shlex.split(input(">>"))
+            if command:
                 try:
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                except KeyError:
-                    print_color(COMMAND_SYNTAX[command[0] + ' ' + command[1]], FORE_RED)
-                print()
-            except TooFewArgumentError as msg:
-                print_color('인수가 너무 적습니다.', FORE_RED)
-                if str(msg):
-                    print_color(str(msg), FORE_RED)
-                try:
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                except KeyError:
+                    result = eval_command(command=command[0], args=command[1:])
+                    if len(result) == 2:
+                        srcs, src_list = result
+                    else:
+                        options = result
+                except TooManyArgumentsError as msg:
+                    print_color('인수가 너무 많습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
                     try:
+                        print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    except KeyError:
                         print_color(COMMAND_SYNTAX[command[0] + ' ' + command[1]], FORE_RED)
-                    except KeyError and IndexError:
+                    print()
+                except TooFewArgumentError as msg:
+                    print_color('인수가 너무 적습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
+                    try:
+                        print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    except KeyError:
+                        try:
+                            print_color(COMMAND_SYNTAX[command[0] + ' ' + command[1]], FORE_RED)
+                        except KeyError and IndexError:
+                            pass
+                    print()
+                except ArgumentTypeMismatchError as msg:
+                    print_color('인수가 적절하지 않습니다.', FORE_RED)
+                    if str(msg):
+                        print_color(str(msg), FORE_RED)
+                    try:
+                        print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
+                    except KeyError:
                         pass
-                print()
-            except ArgumentTypeMismatchError as msg:
-                print_color('인수가 적절하지 않습니다.', FORE_RED)
-                if str(msg):
-                    print_color(str(msg), FORE_RED)
-                try:
-                    print_color(COMMAND_SYNTAX[command[0]], FORE_RED)
-                except KeyError:
+                    print()
+                except TypeError:
                     pass
-                print()
-            except TypeError:
-                pass
 
-else:
-    while True:
-        answer = input_color(QUERY_MAIN, FORE_LIME)
-        if answer.isnumeric():
-            answer = int(answer)
-            if answer == 0:  # exit
-                sys.exit()
-                
-            elif answer == 1:  # save [game_name+]
-                answer_1 = input_color(QUERY_1_SAVE, FORE_IVORY)
-                if answer_1 == "1":  # save
-                    eval_command(command='save', args=[])
-                elif answer_1 == '2':  # save game_name+
-                    eval_command(command='save', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
+    else:
+        while True:
+            answer = input_color(QUERY_MAIN, FORE_LIME)
+            if answer.isnumeric():
+                answer = int(answer)
+                if answer == 0:  # exit
+                    sys.exit()
+
+                elif answer == 1:  # save [game_name+]
+                    answer_1 = input_color(QUERY_1_SAVE, FORE_IVORY)
+                    if answer_1 == "1":  # save
+                        eval_command(command='save', args=[])
+                    elif answer_1 == '2':  # save game_name+
+                        eval_command(command='save', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                                     
-            elif answer == 2:  # path add <game_name> [isAFile=0] [nickname]
-                answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
-                if answer_name not in game_name_dict:
-                    print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
-                    continue
-                answer_2 = input_color(QUERY_2_PATH_ADD, FORE_IVORY)
-                if answer_2 == '1':  # path add game_name
-                    eval_command(command='path', args=['add', answer_name])
-                elif answer_2 == '2':  # path add game_name 0 nickname
-                    eval_command(command='path', args=['add', answer_name, '0',
+                elif answer == 2:  # path add <game_name> [isAFile=0] [nickname]
+                    answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
+                    if answer_name not in game_name_dict:
+                        print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
+                        continue
+                    answer_2 = input_color(QUERY_2_PATH_ADD, FORE_IVORY)
+                    if answer_2 == '1':  # path add game_name
+                        eval_command(command='path', args=['add', answer_name])
+                    elif answer_2 == '2':  # path add game_name 0 nickname
+                        eval_command(command='path', args=['add', answer_name, '0',
                                                        input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
-                elif answer_2 == '3':  # path add game_name 1
-                    eval_command(command='path', args=['add', answer_name, '1'])
-                elif answer_2 == '4':  # path add game_name 1 nickname
-                    eval_command(command='path', args=['add', answer_name, '1',
+                    elif answer_2 == '3':  # path add game_name 1
+                        eval_command(command='path', args=['add', answer_name, '1'])
+                    elif answer_2 == '4':  # path add game_name 1 nickname
+                        eval_command(command='path', args=['add', answer_name, '1',
                                                        input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
                 
-            elif answer == 3:  # path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
-                answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
-                if answer_name not in game_name_dict:
-                    print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
-                    continue
-                answer_3 = input_color(QUERY_3_PATH_EDIT, FORE_IVORY)
-                if answer_3 == '1':  # path edit game_name name
-                    eval_command(command='path', args=['edit', answer_name, 'name'])
-                elif answer_3 == '2':  # path edit game_name
-                    eval_command(command='path', args=['edit', answer_name])
-                elif answer_3 == '3':  # path edit game_name nickname
-                    eval_command(command='path', args=['edit', answer_name, 'nickname'])
-                elif answer_3 == '4':  # path edit game_name toggle
-                    eval_command(command='path', args=['edit', answer_name, 'toggle'])
-                elif answer_3 == '5':  # path edit dst
-                    eval_command(command='path', args=['edit', 'dst'])
+                elif answer == 3:  # path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
+                    answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)
+                    if answer_name not in game_name_dict:
+                        print_color(answer_name + GAME_NONEXISTENT, FORE_YELLOW)
+                        continue
+                    answer_3 = input_color(QUERY_3_PATH_EDIT, FORE_IVORY)
+                    if answer_3 == '1':  # path edit game_name name
+                        eval_command(command='path', args=['edit', answer_name, 'name'])
+                    elif answer_3 == '2':  # path edit game_name
+                        eval_command(command='path', args=['edit', answer_name])
+                    elif answer_3 == '3':  # path edit game_name nickname
+                        eval_command(command='path', args=['edit', answer_name, 'nickname'])
+                    elif answer_3 == '4':  # path edit game_name toggle
+                        eval_command(command='path', args=['edit', answer_name, 'toggle'])
+                    elif answer_3 == '5':  # path edit dst
+                        eval_command(command='path', args=['edit', 'dst'])
                 
-            elif answer == 4:  # path show [game_name+|"dst"]
-                answer_4 = input_color(QUERY_4_PATH_SHOW, FORE_IVORY)
-                if answer_4 == '1':  # path show
-                    eval_command(command='path', args=['show'])
-                elif answer_4 == '2':  # path show game_name+
-                    eval_command(command='path', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
-                elif answer_4 == '3':  # path show dst
-                    eval_command(command='path', args=['show', 'dst'])
+                elif answer == 4:  # path show [game_name+|"dst"]
+                    answer_4 = input_color(QUERY_4_PATH_SHOW, FORE_IVORY)
+                    if answer_4 == '1':  # path show
+                        eval_command(command='path', args=['show'])
+                    elif answer_4 == '2':  # path show game_name+
+                        eval_command(command='path', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
+                    elif answer_4 == '3':  # path show dst
+                        eval_command(command='path', args=['show', 'dst'])
                                 
-            elif answer == 5:  # path del <game_name+>
-                eval_command(command='path', args=['del'] + shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
+                elif answer == 5:  # path del <game_name+>
+                    eval_command(command='path', args=['del'] + shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
                 
-            elif answer == 6:  # del <game_name+|date [date]>
-                answer_6 = input_color(QUERY_6_DEL, FORE_IVORY)
-                if answer_6 == '1':  # del game_name+
-                    eval_command(command='del', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
-                elif answer_6 == '2':  # del date
-                    while True:
-                        answer_6_2 = re.search(r'^' + PATTERN_DATE + r'$', input("YYYY-MM-DD의 형식으로 입력해 주세요: "))
-                        if answer_6_2:
-                            eval_command(command='del', args=[answer_6_2.group()])
-                            break
-                        else:
-                            print_color("올바른 날짜를 입력해 주세요.", FORE_GRAPEFRUIT)
-                elif answer_6 == '3':  # del date date
-                    while True:
-                        answer_6_3 = input("YYYY-MM-DD YYYY-MM-DD의 형식으로 입력해 주세요.\n"
-                                           "~까지, ~부터를 나타내기 위해 각각 전자와 후자를 ~로 대체할 수 있습니다: ")
-                        match_to = re.search(r'^~ ' + PATTERN_DATE + r'$', answer_6_3)
-                        match_period = re.search(r'^' + PATTERN_DATE + ' ' + PATTERN_DATE + r'$', answer_6_3)
-                        match_from = re.search(r'^' + PATTERN_DATE + r' ~$', answer_6_3)
-                        if match_to or match_period or match_from:
-                            eval_command(command='del', args=answer_6_3.split())
-                            break
-                        else:
-                            print_color("올바른 기간을 입력해 주세요.", FORE_GRAPEFRUIT)
+                elif answer == 6:  # del <game_name+|date [date]>
+                    answer_6 = input_color(QUERY_6_DEL, FORE_IVORY)
+                    if answer_6 == '1':  # del game_name+
+                        eval_command(command='del', args=shlex.split(input_color(QUERY_GAME_NAMES, FORE_CYAN)))
+                    elif answer_6 == '2':  # del date
+                        while True:
+                            answer_6_2 = re.search(r'^' + PATTERN_DATE + r'$', input("YYYY-MM-DD의 형식으로 입력해 주세요: "))
+                            if answer_6_2:
+                                eval_command(command='del', args=[answer_6_2.group()])
+                                break
+                            else:
+                                print_color("올바른 날짜를 입력해 주세요.", FORE_GRAPEFRUIT)
+                    elif answer_6 == '3':  # del date date
+                        while True:
+                            answer_6_3 = input("YYYY-MM-DD YYYY-MM-DD의 형식으로 입력해 주세요.\n"
+                                               "~까지, ~부터를 나타내기 위해 각각 전자와 후자를 ~로 대체할 수 있습니다: ")
+                            match_to = re.search(r'^~ ' + PATTERN_DATE + r'$', answer_6_3)
+                            match_period = re.search(r'^' + PATTERN_DATE + ' ' + PATTERN_DATE + r'$', answer_6_3)
+                            match_from = re.search(r'^' + PATTERN_DATE + r' ~$', answer_6_3)
+                            if match_to or match_period or match_from:
+                                eval_command(command='del', args=answer_6_3.split())
+                                break
+                            else:
+                                print_color("올바른 기간을 입력해 주세요.", FORE_GRAPEFRUIT)
                                 
-            elif answer == 7:  # delall
-                eval_command(command='delall', args=[])
+                elif answer == 7:  # delall
+                    eval_command(command='delall', args=[])
                 
-            elif answer == 8:  # option [showTF=0]
-                answer_8 = input_color(QUERY_8_OPTION, FORE_IVORY)
-                if answer_8 == "1" or answer_8 == "2":  # option showTF
-                    eval_command(command='option', args=[str(int(answer_8) - 1)])
+                elif answer == 8:  # option [showTF=0]
+                    answer_8 = input_color(QUERY_8_OPTION, FORE_IVORY)
+                    if answer_8 == "1" or answer_8 == "2":  # option showTF
+                        eval_command(command='option', args=[str(int(answer_8) - 1)])
 
-            elif answer == 9:  # get <"steam">
-                answer_9 = input_color(QUERY_9_GET, FORE_IVORY)
-                if answer_9 == '1':
-                    eval_command(command='get', args=['steam'])
+                elif answer == 9:  # get <"steam">
+                    answer_9 = input_color(QUERY_9_GET, FORE_IVORY)
+                    if answer_9 == '1':
+                        eval_command(command='get', args=['steam'])
                                     
+                else:
+                    print_color("올바른 번호를 입력해 주세요.", FORE_GRAPEFRUIT)
             else:
                 print_color("올바른 번호를 입력해 주세요.", FORE_GRAPEFRUIT)
-        else:
-            print_color("올바른 번호를 입력해 주세요.", FORE_GRAPEFRUIT)
