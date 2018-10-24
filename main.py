@@ -6,6 +6,7 @@ import sys
 import re
 import ctypes
 import shlex
+import requests
 from stat import S_IWUSR
 from glob import glob
 from time import sleep
@@ -109,6 +110,10 @@ class FileSelectDialog(QtWidgets.QWidget):
 
     def get_selected_path(self) -> str:
         return self.dialog.selectedFiles()[0]
+
+
+def get_steam_games():  # TODO: 오리진 폴더 구성 보고 get local games로 바꿔서 blablabla
+    pass
 
 
 def save_logic(game_dict: dict):
@@ -551,6 +556,15 @@ def eval_command(**kwargs):
         else:
             raise TooFewArgumentError('add, edit, show, del 중 하나를 추가로 입력해 주세요.')
 
+    elif kwargs['command'] == 'get':  # get <"steam">
+        if len(kwargs['args']) == 0:
+            raise TooFewArgumentError
+        elif len(kwargs['args']) == 1:
+            if kwargs['args'][0] == 'steam':
+                pass
+        else:
+            raise TooManyArgumentsError
+
     elif kwargs['command'] == 'del':  # del <game_name+|date [date]>
         if len(kwargs['args']) == 0:
             raise TooFewArgumentError('전체 삭제는 delall을 이용하세요.')
@@ -823,6 +837,11 @@ else:
                 answer_8 = input_color(QUERY_8_OPTION, FORE_IVORY)
                 if answer_8 == "1" or answer_8 == "2":  # option showTF
                     eval_command(command='option', args=[str(int(answer_8) - 1)])
+
+            elif answer == 9:  # get <"steam">
+                answer_9 = input_color(QUERY_9_GET, FORE_IVORY)
+                if answer_9 == '1':
+                    eval_command(command='get', args=['steam'])
                                     
             else:
                 print_color("올바른 번호를 입력해 주세요.", FORE_GRAPEFRUIT)

@@ -33,7 +33,7 @@ BACK_IVORY = 14 * 16
 BACK_WHITE = 15 * 16
 
 
-COMMANDS = ('help', 'save', 'path add', 'path edit', 'path show', 'path del', 'del', 'delall', 'option', 'exit')
+COMMANDS = ('help', 'save', 'path add', 'path edit', 'path show', 'path del', 'get', 'del', 'delall', 'option', 'exit')
 
 COMMAND_SYNTAX = {'help': 'help [command]',
                   'save': 'save [game_name+]',
@@ -41,6 +41,7 @@ COMMAND_SYNTAX = {'help': 'help [command]',
                   'path edit': 'path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]',
                   'path show': 'path show [game_name+|"dst"]',
                   'path del': 'path del <game_name+>',
+                  'get': 'get <"steam"> [getOnline=0]',
                   'del': 'del <game_name+|date [date]>',
                   'delall': 'delall',
                   'option': 'option [showTF=0]',
@@ -53,6 +54,7 @@ COMMAND_EXPLANATION_SIMPLE = {'help': '도움말을 봅니다.\n'
                               'path edit': '세이브 파일 경로를 수정합니다.',
                               'path show': '세이브 파일 경로를 보여줍니다.',
                               'path del': '저장된 세이브 파일 경로를 삭제합니다.',
+                              'get': '세이브 파일 경로를 감지해 저장합니다.',
                               'del': '저장된 백업본을 삭제합니다.',
                               'delall': '이때까지의 모든 백업본을 삭제합니다.',
                               'option': '옵션 값을 보고 수정합니다.',
@@ -73,6 +75,10 @@ COMMAND_EXPLANATION_DETAILED = {'help': '도움말을 봅니다.\n'
                                              'game_name이 주어지면 해당 게임들의 경로만 보여줍니다.\n'
                                              'dst가 주어지면 백업 경로를 보여줍니다.',
                                 'path del': 'game_name의 이름 또는 별칭을 가진 게임들의 저장된 세이브 파일 경로를 삭제합니다.',
+                                'get': '현재 컴퓨터에 저장돼 있는 게임을 감지해 경로를 자동으로 저장합니다.\n'
+                                       '이 작업은 인터넷 연결을 필요로 합니다.\n'
+                                       '첫 번째 옵션에 해당되는 게임이 아니면 감지하지 못합니다.\n'
+                                       'steam=스팀\n',
                                 'del': '저장된 백업본을 삭제합니다.\n'
                                        'game_name이 주어지면 해당 이름 또는 별칭을 가진 게임들의 백업본만 삭제합니다.\n'
                                        'date가 1개 주어지면 해당 날짜의 백업본을 삭제합니다.\n'
@@ -108,16 +114,17 @@ QUERY_MAIN = """
 6. 저장된 백업본 삭제
 7. 저장된 백업본 모두 삭제
 8. 옵션 확인 및 변경
+9. 세이브 파일 경로 감지
 
 0: 프로그램 종료
-번호를 입력하세요: """
+>>> """
 
 QUERY_1_SAVE = """
 1. 모든 게임 저장
 2. 게임 지정 저장
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
 QUERY_2_PATH_ADD = """
 1. 폴더 지정
@@ -126,7 +133,7 @@ QUERY_2_PATH_ADD = """
 4. 파일 지정 및 닉네임 지정
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
 QUERY_3_PATH_EDIT = """
 1. 게임 이름 변경
@@ -136,7 +143,7 @@ QUERY_3_PATH_EDIT = """
 5. 백업본 저장 경로 변경
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
 QUERY_4_PATH_SHOW = """
 1. 모든 경로 확인
@@ -144,7 +151,7 @@ QUERY_4_PATH_SHOW = """
 3. 백업본 저장 경로 확인
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
 QUERY_6_DEL = """
 1. 게임 지정 삭제
@@ -152,15 +159,28 @@ QUERY_6_DEL = """
 3. 기간 지정 삭제
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
 QUERY_8_OPTION = """
 1. 0/1 형태로 출력
 2. False/True 형태로 출력
 
 다른 모든 문자: 돌아가기
-입력하세요: """
+>>> """
 
-QUERY_GAME_NAMES = '게임 이름 또는 별칭을 입력하세요. 공백으로 구분하며, 게임 이름에 공백이 포함되면 ""로 감싸주세요.\n'
+QUERY_9_GET = """
+1. 스팀 게임
+
+다른 모든 문자: 돌아가기
+>>> """
+
+QUERY_GAME_NAMES = '게임 이름 또는 별칭을 입력하세요. 공백으로 구분하며, 게임 이름에 공백이 포함되면 ""로 감싸주세요.\n>>> '
 
 GAME_NONEXISTENT = "이란 이름 혹은 별칭을 가진 게임이 없습니다."
+
+QUERY_STEAM_ID = """
+다음 중 하나를 입력해 주세요.
+1. 스팀 프로필 주소 전체
+2. 사용자 지정 URL에서 설정한 ID
+3. 스팀 프로필 주소 끝에 있는 숫자
+>>> """
