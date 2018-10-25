@@ -3,11 +3,14 @@ from constants import *
 import winreg
 import requests
 import re
+from lxml import html
+import sys
+from PyQt5 import QtGui
 
 
 class SteamGameListGetter:
     def __init__(self, auto_id=True):
-        if not auto_id or self.get_steam_id():
+        if not auto_id or not self.get_steam_id():
             self.steam_id = input_color(QUERY_STEAM_ID, FORE_CYAN)
 
         self.headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) '
@@ -28,7 +31,6 @@ class SteamGameListGetter:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\\Valve\\Steam")
             steam_path = winreg.QueryValueEx(key, 'SteamPath')[0]
         except OSError:
-            print("w")
             return False
         try_path = steam_path + '/config/loginusers.vdf'
         try:
@@ -37,7 +39,6 @@ class SteamGameListGetter:
                 self.steam_id = steam_id
                 return True
         except OSError or IndexError:
-            print("x")
             return False
 
     def try_connect(self):
@@ -82,16 +83,20 @@ def get_save_loc(game_list: list):
         try:
             connection = requests.get('https://store.steampowered.com/app/' + str(app_id))
             connection.raise_for_status()
+            content = str(connection.content, encoding='utf-8')
 
-            is_dlc = True if 'This content requires the base game' in str(connection.content, encoding='utf-8') \
+            is_dlc = True if 'This content requires the base game' in content or 'This DLC may contain' in content \
                 else False
             if not is_dlc:
-                connection = requests.get('https://pcgamingwiki.com/w/index.php?search=' + name)
+                name = re.sub(r"[A-Za-z]+('[A-Za-z]+)?",
+                              lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(), app_name)
+                name = name.replace("'", '%27').replace('™', '')
+                print()
+                print(app_id, name)
+                connection = requests.get('https://pcgamingwiki.com/w/index.php?search=' + app_name.replace('™', ''))
                 connection.raise_for_status()
-                pat = r''
-                connection = requests.get()
                 content = str(connection.content, encoding='utf-8')
-                try:   # TODO 검색해서 첫 번째 링크로 리다이렉트
+                try:
                     pat = r'location">Save game data location[\S\s]+(Windows|Steam)[\S\s]+</td>'
                     phase_0 = re.search(pat, content).group()
                     pat = r'(Windows|Steam)</th>\n\t<td class="template-infotable-monospace">.+</td>'
@@ -100,19 +105,40 @@ def get_save_loc(game_list: list):
                     for i in re.findall(pat, phase_1):
                         phase_1 = phase_1.replace(i, '')
                     if "Windows" in phase_1:
-                        print("Windows",
-                              phase_1.replace('Windows', '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                        print(phase_1.replace('Windows', '').strip().replace('&lt;', '<').replace('&gt;', '>'))
                     elif "Steam" in phase_1:
-                        print("Steam", phase_1.replace("Steam", '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                        print(phase_1.replace("Steam", '').strip().replace('&lt;', '<').replace('&gt;', '>'))
                     else:
                         print("something went wrong")
                 except AttributeError:
-                    print("NO SAVE FILE")
+                    try:
+                        pat = r'Page title matches</span>[\s\S]+data-serp-pos="0"'
+                        second = re.search(pat, content).group()
+                        pat = r'a href=".+?"'
+                        third = 'https://pcgamingwiki.com' + re.search(pat, second).group()[8:-1]
+                        connection = requests.get(third)
+                        connection.raise_for_status()
+                        content = str(connection.content, encoding='utf-8')
+                        pat = r'location">Save game data location[\S\s]+(Windows|Steam)[\S\s]+</td>'
+                        phase_0 = re.search(pat, content).group()
+                        pat = r'(Windows|Steam)</th>\n\t<td class="template-infotable-monospace">.+</td>'
+                        phase_1 = re.search(pat, phase_0).group()
+                        pat = r'<.+?>'
+                        for i in re.findall(pat, phase_1):
+                            phase_1 = phase_1.replace(i, '')
+                        if "Windows" in phase_1:
+                            print(phase_1.replace('Windows', '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                        elif "Steam" in phase_1:
+                            print(phase_1.replace("Steam", '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                        else:
+                            print("something went wrong")
+                    except AttributeError:
+                        print("NO GAME/NO SAVE FILE")
         except requests.exceptions.RequestException:
             print('FAIL')
 
 
-a = SteamGameListGetter(False)
+a = SteamGameListGetter()
 games = a.get_games()
 get_save_loc(games)
 """
@@ -122,11 +148,40 @@ for i in a.get_games(True):
         print(j)
         print('\t' + str(i[j]))
     print()
+"""
+# TODO DOING THIS TO GET DATA FROM STEAMDB.INFO WHERE USES JAVASCRIPT TO RENDER ITS CONTENT(STEAM STORE AIN'T ACCURATE)
+"""
+import sys  
+from PyQt4.QtGui import *  
+from PyQt4.QtCore import *  
+from PyQt4.QtWebKit import *  
+from lxml import html 
 
+#Take this class for granted.Just use result of rendering.
+class Render(QWebPage):  
+  def __init__(self, url):  
+    self.app = QApplication(sys.argv)  
+    QWebPage.__init__(self)  
+    self.loadFinished.connect(self._loadFinished)  
+    self.mainFrame().load(QUrl(url))  
+    self.app.exec_()  
 
-                name = re.sub(r"[A-Za-z]+('[A-Za-z]+)?",
-                              lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(), app_name)
-                name = name.replace("'", '%27').replace(' ', '_').replace('™', '')
-                print(name)
+  def _loadFinished(self, result):  
+    self.frame = self.mainFrame()  
+    self.app.quit()  
+
+url = 'http://pycoders.com/archive/'  
+r = Render(url)  
+result = r.frame.toHtml()
+# This step is important.Converting QString to Ascii for lxml to process
+
+# The following returns an lxml element tree
+archive_links = html.fromstring(str(result.toAscii()))
+print archive_links
+
+# The following returns an array containing the URLs
+raw_links = archive_links.xpath('//div[@class="campaign"]/a/@href')
+print raw_links
+                
 
 """
