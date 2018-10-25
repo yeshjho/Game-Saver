@@ -350,11 +350,17 @@ def delete_path(names: list):
     return read_loc_file()
 
 
-def get_save_loc(names: list):  # TODO: steamdb에서 검색해서 App Type 찾은 후 DLC가 아니면 PC Gaming Wiki에서 찾기(TM제거)
-    try:
-        connection = None
-    except:
-        pass
+def get_save_loc(game_list: list):  # TODO: steamdb에서 검색해서 App Type 찾은 후 DLC가 아니면 PC Gaming Wiki에서 찾기(TM제거)
+    for app_id, app_name in game_list:
+        try:
+            connection = requests.get('https://store.steampowered.com/app/' + str(app_id))
+            connection.raise_for_status()
+
+            is_dlc = True if 'This content requires the base game' in str(connection.content, encoding='utf-8') \
+                else False
+            print(app_name, is_dlc)
+        except requests.exceptions.RequestException:
+            pass
 
 
 def report_result(message: str, game_list: list, color=FORE_WHITE):
@@ -633,7 +639,7 @@ def eval_command(**kwargs):
                 if not steam.try_connect():
                     return
                 else:
-                    steam_games = steam.get_games()
+                    steam_games = steam.get_games()  # TODO
             else:
                 raise ArgumentTypeMismatchError
         else:
@@ -844,12 +850,12 @@ if __name__ == "__main__":
                         eval_command(command='path', args=['add', answer_name])
                     elif answer_2 == '2':  # path add game_name 0 nickname
                         eval_command(command='path', args=['add', answer_name, '0',
-                                                       input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
+                                                           input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
                     elif answer_2 == '3':  # path add game_name 1
                         eval_command(command='path', args=['add', answer_name, '1'])
                     elif answer_2 == '4':  # path add game_name 1 nickname
                         eval_command(command='path', args=['add', answer_name, '1',
-                                                       input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
+                                                           input_color("\n닉네임을 입력하세요: ", FORE_CYAN)])
                 
                 elif answer == 3:  # path edit <game_name|"dst"> ["name"|{"path"}|"nickname"|"toggle"]
                     answer_name = input_color("\n게임 이름을 입력하세요: ", FORE_CYAN)

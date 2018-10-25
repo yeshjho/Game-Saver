@@ -5,5 +5,5 @@ setup.py
 Game Saver.bat
 __pycache__/
 last_saved.txt
-venv3/
+venv/
 run.bat

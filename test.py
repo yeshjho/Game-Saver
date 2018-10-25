@@ -2,11 +2,12 @@ from main import input_color, print_color
 from constants import *
 import winreg
 import requests
+import re
 
 
 class SteamGameListGetter:
-    def __init__(self):
-        if not self.get_steam_id():
+    def __init__(self, auto_id=True):
+        if not auto_id or self.get_steam_id():
             self.steam_id = input_color(QUERY_STEAM_ID, FORE_CYAN)
 
         self.headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) '
@@ -48,7 +49,7 @@ class SteamGameListGetter:
             print_color('스팀 서버로부터 응답을 받지 못했습니다.', FORE_RED)
             return False
 
-    def get_games(self, is_raw=False):
+    def get_games(self, extra=False, raw=False):
         if not self.try_connect():
             return False
 
@@ -60,11 +61,14 @@ class SteamGameListGetter:
             print_color('해당 아이디의 프로필이 비공개여서 불러올 수 없습니다.', FORE_RED)
             return False
 
+        if raw:
+            return content
+
         index_start = content.find(self.start_tag) + len(self.start_tag)
         index_end = content.find(self.end_tag)
         try:
             game_list = eval(content[index_start:index_end].replace('true', 'True').replace('false', 'False'))
-            if is_raw:
+            if extra:
                 return game_list
             else:
                 return list(map(lambda x: (x['appid'], x['name']), game_list))
@@ -73,10 +77,56 @@ class SteamGameListGetter:
             return False
 
 
-a = SteamGameListGetter()
+def get_save_loc(game_list: list):
+    for app_id, app_name in game_list:
+        try:
+            connection = requests.get('https://store.steampowered.com/app/' + str(app_id))
+            connection.raise_for_status()
+
+            is_dlc = True if 'This content requires the base game' in str(connection.content, encoding='utf-8') \
+                else False
+            if not is_dlc:
+                connection = requests.get('https://pcgamingwiki.com/w/index.php?search=' + name)
+                connection.raise_for_status()
+                pat = r''
+                connection = requests.get()
+                content = str(connection.content, encoding='utf-8')
+                try:   # TODO 검색해서 첫 번째 링크로 리다이렉트
+                    pat = r'location">Save game data location[\S\s]+(Windows|Steam)[\S\s]+</td>'
+                    phase_0 = re.search(pat, content).group()
+                    pat = r'(Windows|Steam)</th>\n\t<td class="template-infotable-monospace">.+</td>'
+                    phase_1 = re.search(pat, phase_0).group()
+                    pat = r'<.+?>'
+                    for i in re.findall(pat, phase_1):
+                        phase_1 = phase_1.replace(i, '')
+                    if "Windows" in phase_1:
+                        print("Windows",
+                              phase_1.replace('Windows', '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                    elif "Steam" in phase_1:
+                        print("Steam", phase_1.replace("Steam", '').strip().replace('&lt;', '<').replace('&gt;', '>'))
+                    else:
+                        print("something went wrong")
+                except AttributeError:
+                    print("NO SAVE FILE")
+        except requests.exceptions.RequestException:
+            print('FAIL')
+
+
+a = SteamGameListGetter(False)
+games = a.get_games()
+get_save_loc(games)
+"""
 for i in a.get_games(True):
     del i['logo']
     for j in i:
         print(j)
         print('\t' + str(i[j]))
     print()
+
+
+                name = re.sub(r"[A-Za-z]+('[A-Za-z]+)?",
+                              lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(), app_name)
+                name = name.replace("'", '%27').replace(' ', '_').replace('™', '')
+                print(name)
+
+"""
